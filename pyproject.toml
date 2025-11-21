@@ -1,0 +1,116 @@
+[project]
+name = "mni"
+version = "0.1.0"
+description = "Micro-nucleus analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cellpose>=4.0.7",
+    "imagecodecs>=2025.11.11",
+    "scikit-image>=0.25.2",
+    "tifffile>=2025.10.16",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pre-commit>=4.0.1",
+    "ruff>=0.9.6",
+]
+
+# ===========================
+# Mypy Configuration Section
+# ===========================
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+explicit_package_bases = true
+namespace_packages = true
+allow_untyped_decorators = true
+mypy_path = "."
+exclude = [
+    "tests/.*",
+    ".venv/.*",
+    "venv/.*",
+    "env/.*",
+    "build/.*",
+    "dist/.*",
+    "migrations/.*",
+    ".*/(examples|docs|notebooks)/.*",    # Multiple dirs in one pattern
+    ".*_nb\\.py$",                        # Jupytext files with _nb suffix
+    ".*\\.ipynb$",
+]
+incremental = true
+cache_dir = ".mypy_cache"
+ignore_missing_imports = true
+pretty = true
+warn_unused_configs = false
+warn_unused_ignores = false
+
+# ===========================
+# Ruff Configuration Section
+# ===========================
+
+[tool.ruff]
+line-length = 79
+lint.select = [
+    "D", "E", "F", "W", #flake8
+    "UP", # pyupgrade
+    "I", # isort
+    "BLE", # flake8-blind-exception
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "ISC", # flake8-implicit-str-concat
+    "G",   # flake8-logging-format
+    "PIE", # flake8-pie
+    "SIM", # flake8-simplify
+]
+lint.ignore = [
+    "E501",   # line too long. let black handle this
+    "UP006",
+    "UP007",  # type annotation. As using magicgui require runtime type annotation then we disable this.
+    "SIM117", # flake8-simplify - some of merged with statements are not looking great with black, reanble after drop python 3.9
+    "ISC001", # string concatenation conflicts with formatter
+    "D203",  # conflicting with D211 (Google prefers D211)
+    "D213",  # conflicting with D212 (Google prefers D212)
+]
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*vendored*",
+    "*_vendor*",
+    "**/*.ipynb",
+    "tests/",
+    "*/tests/",
+    "*_test.py",
+    "test_*.py"
+]
+
+extend-exclude = [
+    "**/examples/**",          # Everything in any examples dir
+    "**/docs/**",              # Everything in any docs dir
+    "**/notebooks/**",         # Everything in any notebooks dir
+]
+
+fix = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
