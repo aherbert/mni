@@ -1,12 +1,13 @@
 """Utility functions."""
 
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import scipy.spatial
+import skimage.measure
 from scipy import ndimage as ndi
-from skimage.measure import regionprops
 
 
 def find_micronuclei(
@@ -31,7 +32,7 @@ def find_micronuclei(
         list of (ID, size, parent ID, distance)
     """
     # Size of each object
-    props = regionprops(im)
+    props = skimage.measure.regionprops(im)
     sizes = {p.label: p.area for p in props}
 
     # For each micro-nucleus
@@ -110,3 +111,65 @@ def _find_border(im: npt.NDArray[Any], labels: list[int]) -> npt.NDArray[Any]:
         eroded = eroded | ndi.binary_erosion(target, strel)
     border = im * mask - im * eroded
     return border.astype(im.dtype)
+
+
+def object_threshold(
+    im: npt.NDArray[Any],
+    mask: npt.NDArray[Any],
+    fun: Callable[[npt.NDArray[Any]], int],
+) -> npt.NDArray[Any]:
+    """Threshold the pixels in each masked object.
+
+    The thresholding function accepts a histogram of pixel
+    value counts and returns the threshold level above
+    which pixels are foreground.
+
+    Args:
+        im: Image pixels.
+        mask: Image mask.
+        fun: Thresholding method.
+
+    Returns:
+        mask of thresholded objects
+    """
+    final_mask = np.zeros(im.shape, dtype=int)
+    total = 0
+    for i, sl in enumerate(ndi.find_objects(mask)):
+        if sl is None:
+            continue
+        label = i + 1
+        # crop for efficiency
+        crop_i = im[sl[0], sl[1]]
+        crop_m = mask[sl[0], sl[1]]
+        # threshold the object
+        target = crop_m == label
+        values = crop_i[target]
+        h = np.bincount(values.ravel())
+        t = fun(h)
+        # create labels
+        target = target & (crop_i > t)
+        labels, n = skimage.measure.label(target, return_num=True)
+        if total:
+            labels[labels != 0] += total
+        total += n
+
+        final_mask[sl[0], sl[1]] += labels
+
+    return _compact_mask(final_mask)
+
+
+def _compact_mask(mask: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    """Compact the int datatype to the smallest required to store all mask IDs.
+
+    Args:
+        mask (npt.NDArray[Any]): Segmentation mask.
+
+    Returns:
+        npt.NDArray[Any]: Compact segmentation mask.
+    """
+    m = mask.max()
+    if m < 2**8:
+        return mask.astype(np.uint8)
+    if m < 2**16:
+        return mask.astype(np.uint16)
+    return mask
