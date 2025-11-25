@@ -1,0 +1,112 @@
+"""Utility functions."""
+
+from typing import Any
+
+import numpy as np
+import numpy.typing as npt
+import scipy.spatial
+from scipy import ndimage as ndi
+from skimage.measure import regionprops
+
+
+def find_micronuclei(
+    im: npt.NDArray[Any],
+    distance: int = 20,
+    size: int = 2000,
+    min_size: int = 50,
+) -> list[tuple[int, int, int, float]]:
+    """Find the micro-nuclei objects.
+
+    Identifies all micro-nuclei as objecvts smaller then the size threshold.
+    For each micro-nucleus, searches for an adjacent nucleus within the
+    threshold distance to assign as the parent.
+
+    Args:
+        im: Image mask.
+        distance: Search distance for bleb.
+        size: Maximum micro-nucleus size.
+        min_size: Minimum micro-nucleus size.
+
+    Returns:
+        list of (ID, size, parent ID, distance)
+    """
+    # Size of each object
+    props = regionprops(im)
+    sizes = {p.label: p.area for p in props}
+
+    # For each micro-nucleus
+    data: list[tuple[int, int, int, float]] = []
+    for p in props:
+        label, area = p.label, int(p.area)
+        if p.area < min_size:
+            continue
+        if p.area > size:
+            data.append((label, area, 0, 0.0))
+            continue
+
+        # Extract the bounding box plus the search distance
+        y, yy, x, xx = (
+            max(0, p.bbox[0] - distance),
+            min(im.shape[0], p.bbox[2] + distance),
+            max(0, p.bbox[1] - distance),
+            min(im.shape[1], p.bbox[3] + distance),
+        )
+        crop = im[y:yy, x:xx]
+
+        # Check if another object is within the box:
+        other = set(np.unique(crop))
+        other.remove(label)
+        if 0 in other:
+            other.remove(0)
+        # ignore neighbour micronuclei
+        for parent in other:
+            if sizes[parent] <= size:
+                other.remove(parent)
+        if len(other) == 0:
+            data.append((label, area, 0, 0.0))
+            continue
+
+        # Identify border pixels for each object
+        b1 = _find_border(crop, [label])
+        b2 = _find_border(crop, list(other))
+        # Create KD-tree for the micronuclei and other objects
+        c1 = np.argwhere(b1)
+        c2 = np.argwhere(b2)
+        tree1 = scipy.spatial.KDTree(c1)
+        # Find the distance and index of the object in the tree (ignored) for each border pixel
+        distances, _index = tree1.query(c2, distance_upper_bound=distance)
+        # Get the closest neighbour object (handle ties with a count)
+        min_d = distance + 1
+        count: dict[int, int] = {}
+        for d, c in zip(distances, c2, strict=False):
+            if min_d < d:
+                continue
+            y, x = c
+            parent = int(crop[y, x])
+            if min_d == d:
+                count[parent] = count.get(parent, 0) + 1
+            else:
+                min_d = d
+                count = {parent: 1}
+
+        # Note if multiple parents have the same count of neighbour pixels
+        # then choose the largest, otherwise the choice is undefined and
+        # defaults to the parent ID
+        neighbours = sorted([(v, sizes[k], k) for (k, v) in count.items()])
+
+        data.append((label, area, neighbours[0][-1], float(min_d)))
+
+    return data
+
+
+def _find_border(im: npt.NDArray[Any], labels: list[int]) -> npt.NDArray[Any]:
+    """Find border pixels for all labelled objects."""
+    mask = np.zeros(im.shape, dtype=bool)
+    eroded = np.zeros(im.shape, dtype=bool)
+    strel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.uint8)
+    for label in labels:
+        target = im == label
+        mask = mask | target
+        eroded = eroded | ndi.binary_erosion(target, strel)
+    border = im * mask - im * eroded
+    return border.astype(im.dtype)
