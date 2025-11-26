@@ -20,6 +20,12 @@ def main() -> None:
         help="Gaussian smoothing filter standard deviation (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--method",
+        default="mean_plus_std",
+        choices=["mean_plus_std", "otsu", "yen", "minimum"],
+        help="Thresholding method (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--std",
         default=4,
         type=float,
@@ -29,27 +35,14 @@ def main() -> None:
     args = parser.parse_args()
 
     # Delay imports until argument parsing succeeds
-    import math
     import os
-    from typing import Any
 
-    import numpy as np
-    import numpy.typing as npt
     from scipy.ndimage import gaussian_filter
-
-    # import skimage.filters
     from tifffile import imread, imwrite
 
-    from mni.utils import object_threshold
+    from mni.utils import object_threshold, threshold_method
 
-    # todo: Move generation of the callable to the utils package
-    def std_above_mean(h: npt.NDArray[Any]) -> int:
-        values = np.arange(len(h))
-        probs = h / np.sum(h)
-        mean = np.sum(probs * values)
-        sd = np.sqrt(np.sum(probs * (values - mean) ** 2))
-        t = np.clip(math.floor(mean + args.std * sd), 0, values[-1])
-        return int(t)
+    fun = threshold_method(args.method, std=args.std)
 
     im = imread(args.image)
     mask = imread(args.mask)
@@ -60,7 +53,7 @@ def main() -> None:
     m = object_threshold(
         im,
         mask,
-        std_above_mean,
+        fun,
     )
     base, suffix = os.path.splitext(args.image)
     fn = f"{base}.objects{suffix}"

@@ -1,11 +1,13 @@
 """Utility functions."""
 
+import math
 from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import scipy.spatial
+import skimage.filters
 import skimage.measure
 from scipy import ndimage as ndi
 
@@ -173,3 +175,62 @@ def _compact_mask(mask: npt.NDArray[Any]) -> npt.NDArray[Any]:
     if m < 2**16:
         return mask.astype(np.uint16)
     return mask
+
+
+def threshold_method(
+    name: str, std: float = 4
+) -> Callable[[npt.NDArray[Any]], int]:
+    """Create a threshold function.
+
+    Supported functions:
+
+    mean_plus_std: Threshold using (mean + n * std)
+    otsu: Otsu thresholding.
+    yen: Yen's method.
+    minimum: Smoth the histogram until only two maxima and return the mid-point between them.
+
+    Args:
+        name: Method name.
+        std: Factor n for (mean + n * std) mean_plus_std method.
+
+    Returns:
+        Callable threshold method.
+    """
+    if name == "mean_plus_std":
+
+        def mean_plus_std(h: npt.NDArray[Any]) -> int:
+            values = np.arange(len(h))
+            probs = h / np.sum(h)
+            mean = np.sum(probs * values)
+            sd = np.sqrt(np.sum(probs * (values - mean) ** 2))
+            t = np.clip(math.floor(mean + std * sd), 0, values[-1])
+            return int(t)
+
+        return mean_plus_std
+
+    if name == "otsu":
+
+        def otsu(h: npt.NDArray[Any]) -> int:
+            return int(skimage.filters.threshold_otsu(hist=h))
+
+        return otsu
+
+    if name == "yen":
+
+        def yen(h: npt.NDArray[Any]) -> int:
+            return int(skimage.filters.threshold_yen(hist=h))
+
+        return yen
+
+    if name == "minimum":
+
+        def minimum(h: npt.NDArray[Any]) -> int:
+            try:
+                return int(skimage.filters.threshold_minimum(hist=h))
+            except RuntimeError as e:
+                print(e)
+                return -1
+
+        return minimum
+
+    raise Exception(f"Unknown method: {name}")
