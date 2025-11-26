@@ -14,8 +14,14 @@ def main() -> None:
 
     group = parser.add_argument_group("Threshold Options")
     _ = group.add_argument(
+        "--sigma",
+        default=1.5,
+        type=float,
+        help="Gaussian smoothing filter standard deviation (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--std",
-        default=3,
+        default=4,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
     )
@@ -29,12 +35,14 @@ def main() -> None:
 
     import numpy as np
     import numpy.typing as npt
+    from scipy.ndimage import gaussian_filter
 
     # import skimage.filters
     from tifffile import imread, imwrite
 
     from mni.utils import object_threshold
 
+    # todo: Move generation of the callable to the utils package
     def std_above_mean(h: npt.NDArray[Any]) -> int:
         values = np.arange(len(h))
         probs = h / np.sum(h)
@@ -46,7 +54,8 @@ def main() -> None:
     im = imread(args.image)
     mask = imread(args.mask)
 
-    # TODO: apply Gaussian filter to image pixels
+    if args.sigma > 0:
+        im = gaussian_filter(im, args.sigma, mode="mirror")
 
     m = object_threshold(
         im,
