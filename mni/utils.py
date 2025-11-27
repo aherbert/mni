@@ -42,6 +42,7 @@ def find_objects(
 
 def find_micronuclei(
     label_image: npt.NDArray[Any],
+    objects: list[tuple[int, int, tuple[slice, slice]]] | None = None,
     distance: int = 20,
     size: int = 2000,
     min_size: int = 50,
@@ -54,6 +55,7 @@ def find_micronuclei(
 
     Args:
         label_image: Label image.
+        objects: Objects of interest (computed using find_objects)
         distance: Search distance for bleb.
         size: Maximum micro-nucleus size.
         min_size: Minimum micro-nucleus size.
@@ -61,7 +63,8 @@ def find_micronuclei(
     Returns:
         list of (ID, size, parent ID, distance)
     """
-    objects = find_objects(label_image)
+    if objects is None:
+        objects = find_objects(label_image)
     sizes = {label: area for (label, area, _) in objects}
 
     # For each micro-nucleus
@@ -147,6 +150,7 @@ def object_threshold(
     im: npt.NDArray[Any],
     label_image: npt.NDArray[Any],
     fun: Callable[[npt.NDArray[Any]], int],
+    objects: list[tuple[int, int, tuple[slice, slice]]] | None = None,
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
 
@@ -157,14 +161,16 @@ def object_threshold(
     Args:
         im: Image pixels.
         label_image: Label iamge.
+        objects: Objects of interest (computed using find_objects)
         fun: Thresholding method.
 
     Returns:
         mask of thresholded objects
     """
+    if objects is None:
+        objects = find_objects(label_image)
     final_mask = np.zeros(im.shape, dtype=int)
     total = 0
-    objects = find_objects(label_image)
     for label, _area, bbox in objects:
         # crop for efficiency
         crop_i = im[bbox[0], bbox[1]]
