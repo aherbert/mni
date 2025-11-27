@@ -9,7 +9,9 @@ import numpy.typing as npt
 import scipy.spatial
 import skimage.filters
 import skimage.measure
+from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
+from skimage.util import map_array
 
 
 def find_objects(
@@ -55,7 +57,7 @@ def find_micronuclei(
 
     Args:
         label_image: Label image.
-        objects: Objects of interest (computed using find_objects)
+        objects: Objects of interest (computed using find_objects).
         distance: Search distance for bleb.
         size: Maximum micro-nucleus size.
         min_size: Minimum micro-nucleus size.
@@ -161,7 +163,7 @@ def object_threshold(
     Args:
         im: Image pixels.
         label_image: Label iamge.
-        objects: Objects of interest (computed using find_objects)
+        objects: Objects of interest (computed using find_objects).
         fun: Thresholding method.
 
     Returns:
@@ -266,3 +268,212 @@ def threshold_method(
         return minimum
 
     raise Exception(f"Unknown method: {name}")
+
+
+def spot_analysis(
+    label_image: npt.NDArray[Any],
+    objects: list[tuple[int, int, tuple[slice, slice]]],
+    groups: list[tuple[int, ...]],
+    im1: npt.NDArray[Any],
+    label1: npt.NDArray[Any],
+    im2: npt.NDArray[Any],
+    label2: npt.NDArray[Any],
+) -> list[tuple[int | float, ...]]:
+    """Analyse object labels in two image channels within each group of objects.
+
+    The group object is combined using the labels from the provided groups.
+    The labels within the two images are compared for overlap of single objects
+    and the Intersection-over-Union (IoU) and Mander's coefficient computed.
+
+    Data is returned for each object label within the first and second image:
+
+    group: Group number (from 1).
+    channel: Channel of label.
+    label: Label.
+    parent: Label of parent from the group of objects.
+    size: Size of label.
+    mean intensity: Mean intensity of label image.
+    cx: Centroid x.
+    cy: Centroid y.
+    iou: Intersection-over-Union (IoU) of the overlap with the other channel object.
+    other: Label from the other channel.
+    m: Mander's coefficient of the overlap.
+
+    Args:
+        label_image: Label iamge.
+        objects: Objects of interest (computed using find_objects).
+        groups: Labels of objects in each group.
+        im1: First image.
+        label1: First image object labels.
+        im2: Second image.
+        label2: Second image object labels.
+
+    Returns:
+        analysis results
+    """
+    # object look-up by label
+    object_d = {o[0]: o for o in objects}
+
+    results: list[tuple[int | float, ...]] = []
+    for group_id, group in enumerate(groups):
+        group_id += 1
+        bbox = object_d[group[0]][2]
+        y, yy, x, xx = bbox[0].start, bbox[0].stop, bbox[1].start, bbox[1].stop
+        for label in group[1:]:
+            bbox = object_d[label][2]
+            y, yy, x, xx = (
+                min(y, bbox[0].start),
+                max(yy, bbox[0].stop),
+                min(x, bbox[1].start),
+                max(xx, bbox[1].stop),
+            )
+        # Simplify the group object by cropping and relabel
+        mask = _extract_labels(label_image[y:yy, x:xx], group)
+        c_label_, id_ = relabel(label_image[y:yy, x:xx] * mask)
+        c_label1, id1 = relabel(label1[y:yy, x:xx] * mask)
+        c_label2, id2 = relabel(label2[y:yy, x:xx] * mask)
+        if len(id1) == 0 and len(id2) == 0:
+            # Nothing to analyse
+            continue
+        c_im1 = im1[y:yy, x:xx]
+        c_im2 = im2[y:yy, x:xx]
+        # Objects
+        objects1 = find_objects(c_label1)
+        objects2 = find_objects(c_label2)
+        # iou for label1 with label2
+        iou1, match2 = mask_ious(c_label1, c_label2)
+        # total intensity, cx, cy
+        data1 = _analyse(c_im1, c_label1, objects1, (y, x))
+        data2 = _analyse(c_im2, c_label2, objects2, (y, x))
+        # Compute Mander's coefficient for the matches
+        manders1 = {}
+        manders2 = {}
+        for i, l2 in enumerate(match2):
+            if iou1[i] == 0:
+                continue
+            l1 = i + 1
+            # crop to overlap
+            bbox1 = objects1[i][2]
+            bbox2 = objects2[l2 - 1][2]
+            y, yy, x, xx = (
+                min(bbox1[0].start, bbox2[0].start),
+                max(bbox1[0].stop, bbox2[0].stop),
+                min(bbox1[1].start, bbox2[1].start),
+                max(bbox1[1].stop, bbox2[1].stop),
+            )
+            mask = (c_label1[y:yy, x:xx] == l1) & (c_label2[y:yy, x:xx] == l2)
+            manders1[l1] = float(
+                (c_im1[y:yy, x:xx] * mask).sum() / data1[i][0]
+            )
+            manders2[l2] = float(
+                (c_im2[y:yy, x:xx] * mask).sum() / data2[l2 - 1][0]
+            )
+        # Report
+        for i, d in enumerate(data1):
+            cx, cy = d[1], d[2]
+            parent = int(label_image[math.floor(cy), math.floor(cx)])
+            results.append(
+                (
+                    group_id,
+                    1,
+                    int(id1[i]),
+                    parent,
+                    objects1[i][1],
+                    d[0],
+                    cx,
+                    cy,
+                    float(iou1[i]),
+                    int(id2[match2[i] - 1]) if iou1[i] else 0,
+                    manders1.get(i + 1, 0),
+                )
+            )
+        for i, d in enumerate(data2):
+            cx, cy = d[1], d[2]
+            parent = int(label_image[math.floor(cy), math.floor(cx)])
+            # Reverse look-up IoU
+            iou, match = 0, -1
+            indices = np.nonzero(match2 == i + 1)[0]
+            if len(indices):
+                iou, match = iou1[indices[0]], indices[0]
+            results.append(
+                (
+                    group_id,
+                    2,
+                    int(id2[i]),
+                    parent,
+                    objects2[i][1],
+                    d[0],
+                    cx,
+                    cy,
+                    float(iou),
+                    int(id1[match]) if iou else 0,
+                    manders2.get(i + 1, 0),
+                )
+            )
+
+    return results
+
+
+def _extract_labels(
+    label_image: npt.NDArray[Any], labels: tuple[int, ...]
+) -> npt.NDArray[Any]:
+    """Extract a mask for all labelled objects."""
+    mask = np.zeros(label_image.shape, dtype=bool)
+    for label in labels:
+        target = label_image == label
+        mask = mask | target
+    return mask
+
+
+def relabel(
+    mask: npt.NDArray[Any],
+) -> tuple[npt.NDArray[Any], list[int]]:
+    """Relabels the mask to be continuous from 1.
+
+    The old id array contains the original ID for each new label:
+
+    original id = old_id[label - 1]
+
+    Args:
+        mask: unfiltered segmentation mask
+
+    Returns:
+        relabeled mask, old_id
+    """
+    sizes = np.bincount(mask.ravel())
+    sizes[0] = 0
+    mask_sizes = sizes != 0
+    old_id = np.arange(len(sizes))[mask_sizes]
+    n = len(old_id)
+    new_mask = map_array(
+        mask, old_id, np.arange(1, 1 + n), out=np.zeros_like(mask)
+    )
+    return new_mask, old_id  # type: ignore[no-any-return]
+
+
+def _analyse(
+    im: npt.NDArray[Any],
+    label_image: npt.NDArray[Any],
+    objects: list[tuple[int, int, tuple[slice, slice]]],
+    offset: tuple[int, int],
+) -> list[tuple[float, float, float]]:
+    """Extract the intensity and centroids for all labelled objects.
+
+    Centroids use (0.5, 0.5) as the centre of pixels.
+    """
+    data = []
+    for label, _, bbox in objects:
+        crop_image = im[bbox[0], bbox[1]]
+        crop_label = label_image[bbox[0], bbox[1]]
+        mask = crop_label == label
+        intensity = float((crop_image * mask).sum())
+        y, x = np.nonzero(mask)
+        weights = crop_image[mask].ravel()
+        weights = weights / weights.sum()
+        cy, cx = (
+            float(np.sum(y * weights) + bbox[0].start + offset[0] + 0.5),
+            float(np.sum(x * weights) + bbox[1].start + offset[1] + 0.5),
+        )
+        data.append((intensity, cx, cy))
+
+    return data
