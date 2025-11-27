@@ -393,14 +393,14 @@ def spot_analysis(
         objects1 = find_objects(c_label1)
         objects2 = find_objects(c_label2)
         # iou for label1 with label2
-        iou1, match2 = mask_ious(c_label1, c_label2)
+        iou1, match1 = mask_ious(c_label1, c_label2)
         # total intensity, cx, cy
         data1 = _analyse(c_im1, c_label1, objects1, (y, x))
         data2 = _analyse(c_im2, c_label2, objects2, (y, x))
         # Compute Mander's coefficient for the matches
         manders1 = {}
         manders2 = {}
-        for i, l2 in enumerate(match2):
+        for i, l2 in enumerate(match1):
             if iou1[i] == 0:
                 continue
             l1 = i + 1
@@ -420,48 +420,44 @@ def spot_analysis(
             manders2[l2] = float(
                 (c_im2[y:yy, x:xx] * mask).sum() / data2[l2 - 1][0]
             )
+        # Create reverse IoU lookup
+        iou2 = np.zeros(len(data2))
+        match2 = np.zeros(len(data2), dtype=np.int_)
+        for i, (iou, m) in enumerate(zip(iou1, match1, strict=True)):
+            if iou:
+                j = m - 1
+                match2[j] = i + 1
+                iou2[j] = iou
+
         # Report
-        for i, d in enumerate(data1):
-            cx, cy = d[1], d[2]
-            parent = int(label_image[math.floor(cy), math.floor(cx)])
-            results.append(
-                (
-                    group_id,
-                    1,
-                    int(id1[i]),
-                    parent,
-                    objects1[i][1],
-                    d[0],
-                    cx,
-                    cy,
-                    float(iou1[i]),
-                    int(id2[match2[i] - 1]) if iou1[i] else 0,
-                    manders1.get(i + 1, 0),
+        for ch_, data_, id_, objects_, iou_, match_, manders_ in zip(
+            [1, 2],
+            [data1, data2],
+            [id1, id2],
+            [objects1, objects2],
+            [iou1, iou2],
+            [match1, match2],
+            [manders1, manders2],
+            strict=True,
+        ):
+            for i, d in enumerate(data_):
+                cx, cy = d[1], d[2]
+                parent = int(label_image[math.floor(cy), math.floor(cx)])
+                results.append(
+                    (
+                        group_id,
+                        ch_,
+                        int(id_[i]),
+                        parent,
+                        objects_[i][1],
+                        d[0] / objects_[i][1],
+                        cx,
+                        cy,
+                        float(iou_[i]),
+                        int(id_[match_[i] - 1]) if iou_[i] else 0,
+                        manders_.get(i + 1, 0),
+                    )
                 )
-            )
-        for i, d in enumerate(data2):
-            cx, cy = d[1], d[2]
-            parent = int(label_image[math.floor(cy), math.floor(cx)])
-            # Reverse look-up IoU
-            iou, match = 0, -1
-            indices = np.nonzero(match2 == i + 1)[0]
-            if len(indices):
-                iou, match = iou1[indices[0]], indices[0]
-            results.append(
-                (
-                    group_id,
-                    2,
-                    int(id2[i]),
-                    parent,
-                    objects2[i][1],
-                    d[0],
-                    cx,
-                    cy,
-                    float(iou),
-                    int(id1[match]) if iou else 0,
-                    manders2.get(i + 1, 0),
-                )
-            )
 
     return results
 
