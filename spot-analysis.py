@@ -46,6 +46,7 @@ def main() -> None:
         find_micronuclei,
         find_objects,
         spot_analysis,
+        spot_summary,
     )
 
     label_image = imread(args.mask)
@@ -77,6 +78,14 @@ def main() -> None:
         cls = class_names.get(parent, "")
         r2 = r[:4] + (cls,) + r[4:]
         print(r2)
+
+    summary = spot_summary(results, groups)
+
+    for s in summary:
+        parent = int(s[1])
+        cls = class_names.get(parent, "")
+        s2 = s[:2] + (cls,) + s[2:] + (s[-2] + s[-1],)
+        print(s2)
 
 
 if __name__ == "__main__":

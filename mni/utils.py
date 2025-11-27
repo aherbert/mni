@@ -529,3 +529,39 @@ def _analyse(
         data.append((intensity, cx, cy))
 
     return data
+
+
+def spot_summary(
+    results: list[tuple[int | float, ...]],
+    groups: list[tuple[int, ...]],
+) -> list[tuple[int, ...]]:
+    """Summarise the spots results by group.
+
+    group: Group number.
+    label: Parent label.
+    count1: Number of spots in channel 1.
+    count2: Number of spots in channel 2.
+
+    Args:
+        results: Spot analysis results.
+        groups: Labels of objects in each group.
+
+    Returns:
+        summary
+    """
+    # Count of spots in each parent label
+    count1: dict[int, int] = {}
+    count2: dict[int, int] = {}
+    for _group, ch, _label, parent, *_ in results:
+        parent = int(parent)
+        d = count1 if ch == 1 else count2
+        d[parent] = d.get(parent, 0) + 1
+
+    summary: list[tuple[int, ...]] = []
+    for group_id, group in enumerate(groups):
+        group_id += 1
+        for label in group:
+            summary.append(
+                (group_id, label, count1.get(label, 0), count2.get(label, 0))
+            )
+    return summary
