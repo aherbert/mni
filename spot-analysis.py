@@ -40,7 +40,13 @@ def main() -> None:
     # Delay imports until argument parsing succeeds
     from tifffile import imread
 
-    from mni.utils import find_micronuclei, find_objects, spot_analysis
+    from mni.utils import (
+        classify_objects,
+        collate_groups,
+        find_micronuclei,
+        find_objects,
+        spot_analysis,
+    )
 
     label_image = imread(args.mask)
     im1 = imread(args.image1)
@@ -59,22 +65,12 @@ def main() -> None:
     )
 
     # Create groups. This collates blebs with their parent.
-    group_d = {x: [x] for (x, *_) in data}
-    for label, _, parent, _ in data:
-        if parent:
-            del group_d[label]
-            group_d[parent].append(label)
-    groups = sorted([tuple(x) for x in group_d.values()])
+    groups = collate_groups(data)
+    class_names = classify_objects(data, args.size, 10.0)
 
     results = spot_analysis(
         label_image, objects, groups, im1, label1, im2, label2
     )
-
-    # Classify objects
-    class_names = {
-        x: "bleb" if parent else "mni" if size <= args.size else "nucleus"
-        for (x, size, parent, *_) in data
-    }
 
     for r in results:
         parent = int(r[3])
