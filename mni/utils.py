@@ -12,20 +12,48 @@ import skimage.measure
 from scipy import ndimage as ndi
 
 
+def find_objects(
+    label_image: npt.NDArray[Any],
+) -> list[tuple[int, int, tuple[slice, slice]]]:
+    """Find the objects in the labeled image.
+
+    Identifies the size and bounding box of objects. The bounding box (bb) is
+    a tuple of slices of [min_row, max_row) and [min_col, max_col)
+    suitable for extracting the region using im[bb[0], bb[1]].
+
+    This method combines numpy.bincount with scipy.ndimage.find_objects.
+
+    Args:
+        label_image: Label image.
+
+    Returns:
+        list of (ID, size, (slice(min_row, max_row), slice(min_col, max_col)))
+    """
+    data = []
+    h = np.bincount(label_image.ravel())
+    objects = ndi.find_objects(label_image)
+    for i, bb in enumerate(objects):
+        if bb is None:
+            continue
+        label = i + 1
+        data.append((label, int(h[label]), bb))
+    return data
+
+
 def find_micronuclei(
-    im: npt.NDArray[Any],
+    label_image: npt.NDArray[Any],
     distance: int = 20,
     size: int = 2000,
     min_size: int = 50,
 ) -> list[tuple[int, int, int, float]]:
     """Find the micro-nuclei objects.
 
-    Identifies all micro-nuclei as objecvts smaller then the size threshold.
+    Identifies all micro-nuclei as objects smaller then the size threshold.
     For each micro-nucleus, searches for an adjacent nucleus within the
     threshold distance to assign as the parent.
 
     Args:
-        im: Image mask.
+        label_image: Label image.
         distance: Search distance for bleb.
         size: Maximum micro-nucleus size.
         min_size: Minimum micro-nucleus size.
@@ -33,28 +61,26 @@ def find_micronuclei(
     Returns:
         list of (ID, size, parent ID, distance)
     """
-    # Size of each object
-    props = skimage.measure.regionprops(im)
-    sizes = {p.label: p.area for p in props}
+    objects = find_objects(label_image)
+    sizes = {label: area for (label, area, _) in objects}
 
     # For each micro-nucleus
     data: list[tuple[int, int, int, float]] = []
-    for p in props:
-        label, area = p.label, int(p.area)
-        if p.area < min_size:
+    for label, area, bbox in objects:
+        if area < min_size:
             continue
-        if p.area > size:
+        if area > size:
             data.append((label, area, 0, 0.0))
             continue
 
         # Extract the bounding box plus the search distance
         y, yy, x, xx = (
-            max(0, p.bbox[0] - distance),
-            min(im.shape[0], p.bbox[2] + distance),
-            max(0, p.bbox[1] - distance),
-            min(im.shape[1], p.bbox[3] + distance),
+            max(0, bbox[0].start - distance),
+            min(label_image.shape[0], bbox[0].stop + distance),
+            max(0, bbox[1].start - distance),
+            min(label_image.shape[1], bbox[1].stop + distance),
         )
-        crop = im[y:yy, x:xx]
+        crop = label_image[y:yy, x:xx]
 
         # Check if another object is within the box:
         other = set(np.unique(crop))
@@ -102,22 +128,24 @@ def find_micronuclei(
     return data
 
 
-def _find_border(im: npt.NDArray[Any], labels: list[int]) -> npt.NDArray[Any]:
+def _find_border(
+    label_image: npt.NDArray[Any], labels: list[int]
+) -> npt.NDArray[Any]:
     """Find border pixels for all labelled objects."""
-    mask = np.zeros(im.shape, dtype=bool)
-    eroded = np.zeros(im.shape, dtype=bool)
+    mask = np.zeros(label_image.shape, dtype=bool)
+    eroded = np.zeros(label_image.shape, dtype=bool)
     strel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.uint8)
     for label in labels:
-        target = im == label
+        target = label_image == label
         mask = mask | target
         eroded = eroded | ndi.binary_erosion(target, strel)
-    border = im * mask - im * eroded
-    return border.astype(im.dtype)
+    border = label_image * mask - label_image * eroded
+    return border.astype(label_image.dtype)
 
 
 def object_threshold(
     im: npt.NDArray[Any],
-    mask: npt.NDArray[Any],
+    label_image: npt.NDArray[Any],
     fun: Callable[[npt.NDArray[Any]], int],
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
@@ -128,7 +156,7 @@ def object_threshold(
 
     Args:
         im: Image pixels.
-        mask: Image mask.
+        label_image: Label iamge.
         fun: Thresholding method.
 
     Returns:
@@ -136,13 +164,11 @@ def object_threshold(
     """
     final_mask = np.zeros(im.shape, dtype=int)
     total = 0
-    for i, sl in enumerate(ndi.find_objects(mask)):
-        if sl is None:
-            continue
-        label = i + 1
+    objects = find_objects(label_image)
+    for label, _area, bbox in objects:
         # crop for efficiency
-        crop_i = im[sl[0], sl[1]]
-        crop_m = mask[sl[0], sl[1]]
+        crop_i = im[bbox[0], bbox[1]]
+        crop_m = label_image[bbox[0], bbox[1]]
         # threshold the object
         target = crop_m == label
         values = crop_i[target]
@@ -155,7 +181,7 @@ def object_threshold(
             labels[labels != 0] += total
         total += n
 
-        final_mask[sl[0], sl[1]] += labels
+        final_mask[bbox[0], bbox[1]] += labels
 
     return _compact_mask(final_mask)
 
