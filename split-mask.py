@@ -9,7 +9,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="""Program to split a mask image into an image per object."""
     )
-    _ = parser.add_argument("image", help="Mask image (TIFF)")
+    _ = parser.add_argument("mask", help="Mask image (TIFF)")
     _ = parser.add_argument(
         "--bytes",
         default=False,
@@ -25,8 +25,8 @@ def main() -> None:
     import numpy as np
     from tifffile import imread, imwrite
 
-    im = imread(args.image)
-    base, suffix = os.path.splitext(args.image)
+    im = imread(args.mask)
+    base, suffix = os.path.splitext(args.mask)
     n = np.max(im)
     for n in range(1, np.max(im) + 1):
         m = im == n

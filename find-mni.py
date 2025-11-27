@@ -9,7 +9,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="""Program to find micro-nuclei in a mask image."""
     )
-    _ = parser.add_argument("image", help="Mask image (TIFF)")
+    _ = parser.add_argument("mask", help="Mask image (TIFF)")
 
     group = parser.add_argument_group("Micro-nuclei Options")
     _ = group.add_argument(
@@ -38,7 +38,7 @@ def main() -> None:
 
     from mni.utils import find_micronuclei
 
-    im = imread(args.image)
+    im = imread(args.mask)
     data = find_micronuclei(
         im, distance=args.distance, size=args.size, min_size=args.min_size
     )
