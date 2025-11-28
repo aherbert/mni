@@ -30,9 +30,10 @@ def show_analysis(
     viewer = napari.Viewer()
     n = image.shape[0]
     if channel_names is None:
-        channel_names = []
-    while len(channel_names) < n:
-        channel_names.append("Channel " + str(len(channel_names)))
+        channel_names = ["Channel " + str(i) for i in range(n)]
+    else:
+        while len(channel_names) < n:
+            channel_names.append("Channel " + str(len(channel_names)))
     colors = _generate_color_map(channel_names)
     # Add image layers
     for i, im in enumerate(image):
