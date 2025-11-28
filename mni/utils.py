@@ -561,3 +561,75 @@ def spot_summary(
                 (group_id, label, count1.get(label, 0), count2.get(label, 0))
             )
     return summary
+
+
+def format_spot_results(
+    results: list[tuple[int | float, ...]],
+    class_names: dict[int, str] | None = None,
+) -> list[tuple[int | float | str, ...]]:
+    """Format the spot results.
+
+    Args:
+        results: Spot analysis results.
+        class_names: Optional class name of each object.
+
+    Returns:
+        Formatted results
+    """
+    out: list[tuple[int | float | str, ...]] = []
+    out.append(
+        (
+            "group",
+            "channel",
+            "label",
+            "parent",
+            "class",
+            "size",
+            "mean",
+            "cx",
+            "cy",
+            "iou",
+            "other",
+            "manders",
+        )
+    )
+    for data in results:
+        parent = int(data[3])
+        cls = class_names.get(parent, "") if class_names else ""
+        formatted = data[:4] + (cls,) + data[4:]
+        out.append(formatted)
+
+    return out
+
+
+def format_summary_results(
+    summary: list[tuple[int, ...]],
+    class_names: dict[int, str] | None = None,
+) -> list[tuple[int | str, ...]]:
+    """Format the spot summary results.
+
+    Args:
+        summary: Spot analysis summary results.
+        class_names: Optional class name of each object.
+
+    Returns:
+        Formatted results
+    """
+    out: list[tuple[int | str, ...]] = []
+    out.append(
+        (
+            "group",
+            "label",
+            "class",
+            "count1",
+            "count2",
+            "count",
+        )
+    )
+    for data in summary:
+        parent = int(data[1])
+        cls = class_names.get(parent, "") if class_names else ""
+        formatted = data[:2] + (cls,) + data[2:] + (data[-2] + data[-1],)
+        out.append(formatted)
+
+    return out

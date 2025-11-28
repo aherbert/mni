@@ -35,9 +35,21 @@ def main() -> None:
         help="Minimum micro-nucleus size (pixels) (default: %(default)s)",
     )
 
+    group = parser.add_argument_group("Save Options")
+    _ = group.add_argument(
+        "--spot-fn",
+        help="Spot filename",
+    )
+    _ = group.add_argument(
+        "--summary-fn",
+        help="Summary filename",
+    )
+
     args = parser.parse_args()
 
     # Delay imports until argument parsing succeeds
+    import csv
+
     from tifffile import imread
 
     from mni.utils import (
@@ -45,6 +57,8 @@ def main() -> None:
         collate_groups,
         find_micronuclei,
         find_objects,
+        format_spot_results,
+        format_summary_results,
         spot_analysis,
         spot_summary,
     )
@@ -73,19 +87,22 @@ def main() -> None:
         label_image, objects, groups, im1, label1, im2, label2
     )
 
-    for r in results:
-        parent = int(r[3])
-        cls = class_names.get(parent, "")
-        r2 = r[:4] + (cls,) + r[4:]
-        print(r2)
+    formatted = format_spot_results(results, class_names=class_names)
+    if args.spot_fn:
+        with open(args.spot_fn, "w", newline="") as f:
+            csv.writer(f).writerows(formatted)
+
+    for r in formatted:
+        print(r)
 
     summary = spot_summary(results, groups)
+    formatted2 = format_summary_results(summary, class_names=class_names)
+    if args.summary_fn:
+        with open(args.summary_fn, "w", newline="") as f:
+            csv.writer(f).writerows(formatted2)
 
-    for s in summary:
-        parent = int(s[1])
-        cls = class_names.get(parent, "")
-        s2 = s[:2] + (cls,) + s[2:] + (s[-2] + s[-1],)
-        print(s2)
+    for r in formatted2:
+        print(r)
 
 
 if __name__ == "__main__":
