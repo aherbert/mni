@@ -56,8 +56,6 @@ def main() -> None:
     args = parser.parse_args()
 
     # Delay imports until argument parsing succeeds
-    import csv
-
     from tifffile import imread
 
     from mni.utils import (
@@ -67,6 +65,7 @@ def main() -> None:
         find_objects,
         format_spot_results,
         format_summary_results,
+        save_csv,
         spot_analysis,
         spot_summary,
     )
@@ -104,8 +103,7 @@ def main() -> None:
 
     formatted = format_spot_results(results, class_names=class_names)
     if args.spot_fn:
-        with open(args.spot_fn, "w", newline="") as f:
-            csv.writer(f).writerows(formatted)
+        save_csv(args.spot_fn, formatted)
 
     for r in formatted:
         print(r)
@@ -113,8 +111,7 @@ def main() -> None:
     summary = spot_summary(results, groups)
     formatted2 = format_summary_results(summary, class_names=class_names)
     if args.summary_fn:
-        with open(args.summary_fn, "w", newline="") as f:
-            csv.writer(f).writerows(formatted2)
+        save_csv(args.summary_fn, formatted2)
 
     for r in formatted2:
         print(r)

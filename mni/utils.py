@@ -1,5 +1,6 @@
 """Utility functions."""
 
+import csv
 import math
 from collections.abc import Callable
 from typing import Any
@@ -714,3 +715,17 @@ def format_summary_results(
         out.append(formatted)
 
     return out
+
+
+def save_csv(
+    fn: str,
+    data: list[Any],
+) -> None:
+    """Save the data to a CSV file.
+
+    Args:
+        fn: File name.
+        data: Data.
+    """
+    with open(fn, "w", newline="") as f:
+        csv.writer(f).writerows(data)
