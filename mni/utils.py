@@ -11,6 +11,7 @@ import skimage.filters
 import skimage.measure
 from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
+from scipy.optimize import linear_sum_assignment
 from skimage.util import map_array
 
 
@@ -330,6 +331,7 @@ def spot_analysis(
     label1: npt.NDArray[Any],
     im2: npt.NDArray[Any],
     label2: npt.NDArray[Any],
+    neighbour_distance: float = 20,
 ) -> list[tuple[int | float, ...]]:
     """Analyse object labels in two image channels within each group of objects.
 
@@ -347,9 +349,11 @@ def spot_analysis(
     mean intensity: Mean intensity of label image.
     cx: Centroid x.
     cy: Centroid y.
+    overlap: Label from the other channel overlap.
     iou: Intersection-over-Union (IoU) of the overlap with the other channel object.
-    other: Label from the other channel.
     m: Mander's coefficient of the overlap.
+    neighbour: Label from the other channel neighbour.
+    distance: Distance to nearest neighbour.
 
     Args:
         label_image: Label iamge.
@@ -359,6 +363,7 @@ def spot_analysis(
         label1: First image object labels.
         im2: Second image.
         label2: Second image object labels.
+        neighbour_distance: Max distance to nearest neighbour.
 
     Returns:
         analysis results
@@ -428,9 +433,34 @@ def spot_analysis(
                 j = m - 1
                 match2[j] = i + 1
                 iou2[j] = iou
-
+        # closest neighbour distance matching
+        c1 = np.array(data1)[:, -2:]
+        c2 = np.array(data2)[:, -2:]
+        row_ind, col_ind, cost = _map_partial_linear_sum(
+            c1, c2, neighbour_distance
+        )
+        d1, d2, neighbour1, neighbour2 = (
+            np.full(len(c1), -1.0),
+            np.full(len(c2), -1.0),
+            np.zeros(len(c1), dtype=np.int_),
+            np.zeros(len(c2), dtype=np.int_),
+        )
+        for r, c in zip(row_ind, col_ind, strict=True):
+            d1[r] = d2[c] = cost[r, c]
+            neighbour1[r] = c
+            neighbour2[c] = r
         # Report
-        for ch_, data_, id_, objects_, iou_, match_, manders_ in zip(
+        for (
+            ch_,
+            data_,
+            id_,
+            objects_,
+            iou_,
+            match_,
+            manders_,
+            d_,
+            neighbour_,
+        ) in zip(
             [1, 2],
             [data1, data2],
             [id1, id2],
@@ -438,6 +468,8 @@ def spot_analysis(
             [iou1, iou2],
             [match1, match2],
             [manders1, manders2],
+            [d1, d2],
+            [neighbour1, neighbour2],
             strict=True,
         ):
             for i, d in enumerate(data_):
@@ -453,9 +485,11 @@ def spot_analysis(
                         d[0] / objects_[i][1],
                         cx,
                         cy,
-                        float(iou_[i]),
                         int(id_[match_[i] - 1]) if iou_[i] else 0,
+                        float(iou_[i]),
                         manders_.get(i + 1, 0),
+                        int(id_[neighbour_[i]]) if d_[i] >= 0 else 0,
+                        float(d_[i]),
                     )
                 )
 
@@ -527,6 +561,51 @@ def _analyse(
     return data
 
 
+def _map_partial_linear_sum(
+    c1: npt.NDArray[Any], c2: npt.NDArray[Any], threshold: float
+) -> tuple[npt.NDArray[np.int_], npt.NDArray[np.int_], npt.NDArray[Any]]:
+    """Minimum weight bipartite graph matching using partial cost matrix of Euclidean distance.
+
+    Args:
+        c1: Coordinates 1
+        c2: Coordinates 1
+        threshold: Distance threshold for alignment mappings
+
+    Returns:
+        Mapping from row -> column, partial cost matrix
+    """
+    # Dense matrix built using KD-Trees with some false edges.
+    tree1 = scipy.spatial.KDTree(c1)
+    tree2 = scipy.spatial.KDTree(c2)
+    # Ensure a full matching exists by setting false edges between all vertices.
+    # Use a distance that cannot be chosen over an actual edge.
+    cost = np.full((len(c1), len(c2)), len(c1) * threshold * 1.0)
+    indexes = tree1.query_ball_tree(tree2, r=threshold)
+    count = 0
+    for i, v1 in enumerate(c1):
+        cm = cost[i]
+        count += len(indexes[i])
+        # Note: If there are no indexes then the threshold is too low.
+        # We could: (a) Increase the threshold until there some edges for
+        # all vertices; (b) choose n random points, find their closest
+        # neighbours and use to estimate the threshold. Currently the
+        # vertex should join a false edge and be removed later.
+        for j in indexes[i]:
+            v2 = c2[j]
+            d = v1 - v2
+            cm[j] = np.sqrt((d * d).sum())
+    row_ind, col_ind = linear_sum_assignment(cost)
+
+    # Ignore large distance mappings. Can occur due to false edges.
+    for i, (r, c) in enumerate(zip(row_ind, col_ind, strict=True)):
+        if cost[r][c] > threshold:
+            row_ind[i], col_ind[i] = -1, -1
+    selected = row_ind >= 0
+    row_ind = row_ind[selected]
+    col_ind = col_ind[selected]
+    return row_ind, col_ind, cost
+
+
 def spot_summary(
     results: list[tuple[int | float, ...]],
     groups: list[tuple[int, ...]],
@@ -588,9 +667,11 @@ def format_spot_results(
             "mean",
             "cx",
             "cy",
+            "overlap",
             "iou",
-            "other",
             "manders",
+            "neighbour",
+            "distance",
         )
     )
     for data in results:

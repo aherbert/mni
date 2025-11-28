@@ -35,6 +35,14 @@ def main() -> None:
         help="Minimum micro-nucleus size (pixels) (default: %(default)s)",
     )
 
+    group = parser.add_argument_group("Spot Options")
+    _ = group.add_argument(
+        "--neighbour-distance",
+        default=20.0,
+        type=float,
+        help="Search distance for nearest neighbour (pixels) (default: %(default)s)",
+    )
+
     group = parser.add_argument_group("Save Options")
     _ = group.add_argument(
         "--spot-fn",
@@ -84,7 +92,14 @@ def main() -> None:
     class_names = classify_objects(data, args.size, args.distance)
 
     results = spot_analysis(
-        label_image, objects, groups, im1, label1, im2, label2
+        label_image,
+        objects,
+        groups,
+        im1,
+        label1,
+        im2,
+        label2,
+        neighbour_distance=args.neighbour_distance,
     )
 
     formatted = format_spot_results(results, class_names=class_names)
