@@ -67,7 +67,7 @@ def main() -> None:
 
     # Create groups. This collates blebs with their parent.
     groups = collate_groups(data)
-    class_names = classify_objects(data, args.size, 10.0)
+    class_names = classify_objects(data, args.size, args.distance)
 
     results = spot_analysis(
         label_image, objects, groups, im1, label1, im2, label2
