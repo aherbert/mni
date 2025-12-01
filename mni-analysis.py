@@ -170,7 +170,6 @@ def main() -> None:
 
     base, suffix = os.path.splitext(args.image)
 
-    # TODO - add logging with some summary info
     # TODO - add ability to read existing results and overwrite
 
     label_image = segment(
@@ -239,7 +238,7 @@ def main() -> None:
     # Create groups. This collates blebs with their parent.
     groups = collate_groups(data)
     class_names = classify_objects(data, args.size, args.distance)
-    logger.info("Classified objects: %s", Counter(class_names.values()))
+    logger.info("Classified objects: %s", dict(Counter(class_names.values())))
 
     results = spot_analysis(
         label_image,
