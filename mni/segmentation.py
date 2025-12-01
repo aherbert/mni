@@ -29,14 +29,11 @@ def segment(
     )
     model = models.CellposeModel(
         device=device,
-        model_type=model_type,
+        pretrained_model=model_type,
     )
-    # 0 = greyscale; [[2, 1]] = cells in green (2), nuclei in red (1)
-    channels = [[0, 0]]
 
     array, _flows, _styles = model.eval(
         img,
-        channels=channels,
         normalize=True,
         diameter=diameter,
     )
