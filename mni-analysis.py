@@ -139,6 +139,7 @@ def main() -> None:
     )
     logger.info("Initialising")
 
+    import json
     import os
     from collections import Counter
 
@@ -296,6 +297,13 @@ def main() -> None:
             channel_names=args.channel_names,
             visible_channels=visible_channels,
         )
+
+    # Save settings if all OK
+    fn = f"{base}.settings.json"
+    logger.info("Saving settings: %s", fn)
+    with open(fn, "w") as f:
+        json.dump(vars(args), f, indent=2)
+
     logger.info("Done")
 
 
