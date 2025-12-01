@@ -280,6 +280,7 @@ def main() -> None:
         logger.info("Existing summary results: %s", fn2)
 
     if args.view:
+        logger.info("Launching viewer")
         from mni.gui import show_analysis
 
         visible_channels = (
@@ -295,6 +296,7 @@ def main() -> None:
             channel_names=args.channel_names,
             visible_channels=visible_channels,
         )
+    logger.info("Done")
 
 
 if __name__ == "__main__":
