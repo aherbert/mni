@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+"""Program to analyse the spots between two channels within MNi objects."""
+
+import argparse
+
+
+def main() -> None:
+    """Program to analyse the spots between two channels within MNi objects."""
+    parser = argparse.ArgumentParser(
+        description="""Program to analyse the spots between two channels within MNi objects."""
+    )
+    _ = parser.add_argument("image", help="Image (CYX) (TIFF)")
+    _ = parser.add_argument(
+        "--object-ch",
+        default=3,
+        type=int,
+        help="Object channel (default: %(default)s)",
+    )
+    _ = parser.add_argument(
+        "--spot-ch1",
+        default=1,
+        type=int,
+        help="Spot channel 1 (default: %(default)s)",
+    )
+    _ = parser.add_argument(
+        "--spot-ch2",
+        default=2,
+        type=int,
+        help="Spot channel 2 (default: %(default)s)",
+    )
+
+    group = parser.add_argument_group("Object Options")
+    _ = group.add_argument(
+        "--model-type",
+        default="cpsam",
+        help="Name of default model (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--diameter",
+        type=float,
+        default=100,
+        help="Expected nuclei diameter (pixels) (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--device",
+        type=str,
+        help="Torch device name (default: auto-detect)",
+    )
+    _ = group.add_argument(
+        "--border",
+        default=20,
+        type=int,
+        help="Border to exclude objects (pixels; negative to disable) (default: %(default)s)",
+    )
+
+    group = parser.add_argument_group("Threshold Options")
+    _ = group.add_argument(
+        "--sigma",
+        default=1.5,
+        type=float,
+        help="Gaussian smoothing filter standard deviation (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--method",
+        default="mean_plus_std",
+        choices=["mean_plus_std", "otsu", "yen", "minimum"],
+        help="Thresholding method (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--std",
+        default=4,
+        type=float,
+        help="Std.dev above the mean (default: %(default)s)",
+    )
+
+    group = parser.add_argument_group("Micro-nuclei Options")
+    _ = group.add_argument(
+        "--distance",
+        default=20,
+        type=int,
+        help="Search distance for bleb (pixels) (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--size",
+        default=2000,
+        type=int,
+        help="Maximum micro-nucleus size (pixels) (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--min-size",
+        default=50,
+        type=int,
+        help="Minimum micro-nucleus size (pixels) (default: %(default)s)",
+    )
+
+    group = parser.add_argument_group("Spot Options")
+    _ = group.add_argument(
+        "--neighbour-distance",
+        default=20.0,
+        type=float,
+        help="Search distance for nearest neighbour (pixels) (default: %(default)s)",
+    )
+
+    group = parser.add_argument_group("View Options")
+    _ = group.add_argument(
+        "--view",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Show results in graphical viewer",
+    )
+    _ = parser.add_argument(
+        "--channel-names", nargs="+", default=[], help="Channel names"
+    )
+    _ = parser.add_argument(
+        "--visible-channels",
+        nargs="+",
+        type=int,
+        default=[],
+        help="Visible channels",
+    )
+
+    group = parser.add_argument_group("Other Options")
+    _ = group.add_argument(
+        "--force",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Force creation of results, replacing those already present",
+    )
+
+    args = parser.parse_args()
+
+    # Delay imports until argument parsing succeeds
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(
+        format="[%(asctime)s] %(levelname)s - %(message)s",
+        level=logging.INFO,
+    )
+    logger.info("Initialising")
+
+    import os
+    from collections import Counter
+
+    import numpy as np
+    from scipy.ndimage import gaussian_filter
+    from tifffile import imread, imwrite
+
+    from mni.segmentation import (
+        filter_segmentation,
+        segment,
+    )
+    from mni.utils import (
+        classify_objects,
+        collate_groups,
+        find_micronuclei,
+        find_objects,
+        format_spot_results,
+        format_summary_results,
+        object_threshold,
+        save_csv,
+        spot_analysis,
+        spot_summary,
+        threshold_method,
+    )
+
+    image = imread(args.image)
+    if image.ndim != 3 or np.argmin(image.shape) != 0:
+        raise RuntimeError("Expected CYX image")
+
+    base, suffix = os.path.splitext(args.image)
+
+    # TODO - add logging with some summary info
+    # TODO - add ability to read existing results and overwrite
+
+    label_image = segment(
+        image[args.object_ch],
+        args.model_type,
+        args.diameter,
+        device=args.device,
+    )
+    label_image, n_objects = filter_segmentation(
+        label_image, border=args.border
+    )
+
+    fn = f"{base}.objects{suffix}"
+    logger.info("Identified %d objects: %s", n_objects, fn)
+    imwrite(fn, label_image, compression="zlib")
+
+    # Spot identification
+    fun = threshold_method(args.method, std=args.std)
+
+    im1 = image[args.spot_ch1]
+    if args.sigma > 0:
+        im1 = gaussian_filter(im1, args.sigma, mode="mirror")
+
+    label1 = object_threshold(
+        im1,
+        label_image,
+        fun,
+    )
+    fn = f"{base}.spot1{suffix}"
+    logger.info(
+        "Identified %d spots in channel %d: %s",
+        np.max(label1),
+        args.spot_ch1,
+        fn,
+    )
+    imwrite(fn, label1, compression="zlib")
+
+    im2 = image[args.spot_ch2]
+    if args.sigma > 0:
+        im2 = gaussian_filter(im2, args.sigma, mode="mirror")
+
+    label2 = object_threshold(
+        im2,
+        label_image,
+        fun,
+    )
+    fn = f"{base}.spot2{suffix}"
+    logger.info(
+        "Identified %d spots in channel %d: %s",
+        np.max(label2),
+        args.spot_ch2,
+        fn,
+    )
+    imwrite(fn, label2, compression="zlib")
+
+    # find micro-nuclei and bleb parents
+    objects = find_objects(label_image)
+    data = find_micronuclei(
+        label_image,
+        objects=objects,
+        distance=args.distance,
+        size=args.size,
+        min_size=args.min_size,
+    )
+
+    # Create groups. This collates blebs with their parent.
+    groups = collate_groups(data)
+    class_names = classify_objects(data, args.size, args.distance)
+    logger.info("Classified objects: %s", Counter(class_names.values()))
+
+    results = spot_analysis(
+        label_image,
+        objects,
+        groups,
+        im1,
+        label1,
+        im2,
+        label2,
+        neighbour_distance=args.neighbour_distance,
+    )
+
+    formatted = format_spot_results(results, class_names=class_names)
+    fn = f"{base}.spots.csv"
+    logger.info("Saving spot results: %s", fn)
+    save_csv(fn, formatted)
+
+    summary = spot_summary(results, groups)
+    formatted2 = format_summary_results(summary, class_names=class_names)
+    fn = f"{base}.summary.csv"
+    logger.info("Saving summary results: %s", fn)
+    save_csv(fn, formatted2)
+
+    if args.view:
+        from mni.gui import show_analysis
+
+        show_analysis(
+            image,
+            label_image,
+            label1,
+            label2,
+            channel_names=args.channel_names,
+            visible_channels=args.visible_channels,
+        )
+
+
+if __name__ == "__main__":
+    main()
