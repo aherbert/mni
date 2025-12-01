@@ -13,8 +13,7 @@ import skimage.measure
 from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
-
-from .segmentation import relabel
+from skimage.util import map_array
 
 
 def find_objects(
@@ -507,6 +506,32 @@ def _extract_labels(
         target = label_image == label
         mask = mask | target
     return mask
+
+
+def relabel(
+    mask: npt.NDArray[Any],
+) -> tuple[npt.NDArray[Any], list[int]]:
+    """Relabels the mask to be continuous from 1.
+
+    The old id array contains the original ID for each new label:
+
+    original id = old_id[label - 1]
+
+    Args:
+        mask: unfiltered segmentation mask
+
+    Returns:
+        relabeled mask, old_id
+    """
+    sizes = np.bincount(mask.ravel())
+    sizes[0] = 0
+    mask_sizes = sizes != 0
+    old_id = np.arange(len(sizes))[mask_sizes]
+    n = len(old_id)
+    new_mask = map_array(
+        mask, old_id, np.arange(1, 1 + n), out=np.zeros_like(mask)
+    )
+    return new_mask, old_id  # type: ignore[no-any-return]
 
 
 def _analyse(

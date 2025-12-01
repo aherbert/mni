@@ -146,10 +146,6 @@ def main() -> None:
     from scipy.ndimage import gaussian_filter
     from tifffile import imread, imwrite
 
-    from mni.segmentation import (
-        filter_segmentation,
-        segment,
-    )
     from mni.utils import (
         classify_objects,
         collate_groups,
@@ -170,60 +166,75 @@ def main() -> None:
 
     base, suffix = os.path.splitext(args.image)
 
-    # TODO - add ability to read existing results and overwrite
-
-    label_image = segment(
-        image[args.object_ch],
-        args.model_type,
-        args.diameter,
-        device=args.device,
-    )
-    label_image, n_objects = filter_segmentation(
-        label_image, border=args.border
-    )
-
     fn = f"{base}.objects{suffix}"
+    if args.force or not os.path.exists(fn):
+        from mni.segmentation import (
+            filter_segmentation,
+            segment,
+        )
+
+        label_image = segment(
+            image[args.object_ch],
+            args.model_type,
+            args.diameter,
+            device=args.device,
+        )
+        label_image, n_objects = filter_segmentation(
+            label_image, border=args.border
+        )
+        imwrite(fn, label_image, compression="zlib")
+    else:
+        label_image = imread(fn)
+        n_objects = np.max(label_image)
+
     logger.info("Identified %d objects: %s", n_objects, fn)
-    imwrite(fn, label_image, compression="zlib")
 
     # Spot identification
     fun = threshold_method(args.method, std=args.std)
 
-    im1 = image[args.spot_ch1]
-    if args.sigma > 0:
-        im1 = gaussian_filter(im1, args.sigma, mode="mirror")
-
-    label1 = object_threshold(
-        im1,
-        label_image,
-        fun,
-    )
     fn = f"{base}.spot1{suffix}"
+    im1 = image[args.spot_ch1]
+    if args.force or not os.path.exists(fn):
+        if args.sigma > 0:
+            im1 = gaussian_filter(im1, args.sigma, mode="mirror")
+        label1 = object_threshold(
+            im1,
+            label_image,
+            fun,
+        )
+        im1 = image[args.spot_ch1]
+        imwrite(fn, label1, compression="zlib")
+    else:
+        label1 = imread(fn)
     logger.info(
         "Identified %d spots in channel %d: %s",
         np.max(label1),
         args.spot_ch1,
         fn,
     )
-    imwrite(fn, label1, compression="zlib")
 
-    im2 = image[args.spot_ch2]
-    if args.sigma > 0:
-        im2 = gaussian_filter(im2, args.sigma, mode="mirror")
-
-    label2 = object_threshold(
-        im2,
-        label_image,
-        fun,
-    )
     fn = f"{base}.spot2{suffix}"
+    im2 = image[args.spot_ch2]
+    if args.force or not os.path.exists(fn):
+        if args.sigma > 0:
+            im2 = gaussian_filter(im2, args.sigma, mode="mirror")
+        label2 = object_threshold(
+            im2,
+            label_image,
+            fun,
+        )
+        im2 = image[args.spot_ch2]
+        imwrite(fn, label2, compression="zlib")
+    else:
+        label2 = imread(fn)
     logger.info(
         "Identified %d spots in channel %d: %s",
         np.max(label2),
         args.spot_ch2,
         fn,
     )
-    imwrite(fn, label2, compression="zlib")
+
+    # Analysis cannot be loaded from previous results
 
     # find micro-nuclei and bleb parents
     objects = find_objects(label_image)
