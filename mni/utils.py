@@ -680,7 +680,7 @@ def format_summary_results(
             "class",
             "count1",
             "count2",
-            "count",
+            "total",
         )
     )
     for data in summary:
