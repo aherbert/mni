@@ -116,7 +116,7 @@ def main() -> None:
         nargs="+",
         type=int,
         default=[],
-        help="Visible channels",
+        help="Visible channels (default is the spot channels)",
     )
 
     group = parser.add_argument_group("Other Options")
@@ -282,13 +282,18 @@ def main() -> None:
     if args.view:
         from mni.gui import show_analysis
 
+        visible_channels = (
+            args.visible_channels
+            if args.visible_channels
+            else [args.spot_ch1, args.spot_ch2]
+        )
         show_analysis(
             image,
             label_image,
             label1,
             label2,
             channel_names=args.channel_names,
-            visible_channels=args.visible_channels,
+            visible_channels=visible_channels,
         )
 
 
