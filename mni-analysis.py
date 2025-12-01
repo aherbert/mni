@@ -234,44 +234,50 @@ def main() -> None:
         fn,
     )
 
-    # Analysis cannot be loaded from previous results
-
-    # find micro-nuclei and bleb parents
-    objects = find_objects(label_image)
-    data = find_micronuclei(
-        label_image,
-        objects=objects,
-        distance=args.distance,
-        size=args.size,
-        min_size=args.min_size,
-    )
-
-    # Create groups. This collates blebs with their parent.
-    groups = collate_groups(data)
-    class_names = classify_objects(data, args.size, args.distance)
-    logger.info("Classified objects: %s", dict(Counter(class_names.values())))
-
-    results = spot_analysis(
-        label_image,
-        objects,
-        groups,
-        im1,
-        label1,
-        im2,
-        label2,
-        neighbour_distance=args.neighbour_distance,
-    )
-
-    formatted = format_spot_results(results, class_names=class_names)
+    # Analysis cannot be loaded from previous results, just skip
     fn = f"{base}.spots.csv"
-    logger.info("Saving spot results: %s", fn)
-    save_csv(fn, formatted)
+    fn2 = f"{base}.summary.csv"
 
-    summary = spot_summary(results, groups)
-    formatted2 = format_summary_results(summary, class_names=class_names)
-    fn = f"{base}.summary.csv"
-    logger.info("Saving summary results: %s", fn)
-    save_csv(fn, formatted2)
+    if args.force or not (os.path.exists(fn) and os.path.exists(fn2)):
+        # find micro-nuclei and bleb parents
+        objects = find_objects(label_image)
+        data = find_micronuclei(
+            label_image,
+            objects=objects,
+            distance=args.distance,
+            size=args.size,
+            min_size=args.min_size,
+        )
+
+        # Create groups. This collates blebs with their parent.
+        groups = collate_groups(data)
+        class_names = classify_objects(data, args.size, args.distance)
+        logger.info(
+            "Classified objects: %s", dict(Counter(class_names.values()))
+        )
+
+        results = spot_analysis(
+            label_image,
+            objects,
+            groups,
+            im1,
+            label1,
+            im2,
+            label2,
+            neighbour_distance=args.neighbour_distance,
+        )
+
+        formatted = format_spot_results(results, class_names=class_names)
+        logger.info("Saving spot results: %s", fn)
+        save_csv(fn, formatted)
+
+        summary = spot_summary(results, groups)
+        formatted2 = format_summary_results(summary, class_names=class_names)
+        logger.info("Saving summary results: %s", fn2)
+        save_csv(fn, formatted2)
+    else:
+        logger.info("Existing spot results: %s", fn)
+        logger.info("Existing summary results: %s", fn2)
 
     if args.view:
         from mni.gui import show_analysis
