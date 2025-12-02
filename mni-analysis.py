@@ -201,7 +201,22 @@ def main() -> None:
     logger.info("Identified %d objects: %s", n_objects, fn)
 
     # Spot identification
-    fun = threshold_method(args.method, std=args.std, q=args.quantile)
+    std = args.std
+    if args.method == "mean_plus_std_q":
+        # make std shift equivalent to get the same thresholding level if a normal distribution is truncated
+        import scipy.stats
+
+        m, v = scipy.stats.truncnorm(
+            -10, scipy.stats.norm.ppf(args.quantile)
+        ).stats("mv")
+        std = (std - m) / np.sqrt(v)
+        logger.info(
+            "Adjusted threshold %s to %.3f using normal distribution truncated at cdf=%s",
+            args.std,
+            std,
+            args.quantile,
+        )
+    fun = threshold_method(args.method, std=std, q=args.quantile)
 
     fn = f"{base}.spot1{suffix}"
     im1 = image[args.spot_ch1]
