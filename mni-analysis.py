@@ -275,7 +275,7 @@ def main() -> None:
         summary = spot_summary(results, groups)
         formatted2 = format_summary_results(summary, class_names=class_names)
         logger.info("Saving summary results: %s", fn2)
-        save_csv(fn, formatted2)
+        save_csv(fn2, formatted2)
     else:
         logger.info("Existing spot results: %s", fn)
         logger.info("Existing summary results: %s", fn2)
