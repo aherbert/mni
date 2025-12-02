@@ -49,10 +49,12 @@ def show_analysis(
     labels = viewer.add_labels(label_image, name="Objects")
     labels.contour = 1
     _ = viewer.add_labels(spot_image1, name="Spots 1")
-    labels = viewer.add_labels(spot_image2, name="Spots 2")
+    labels2 = viewer.add_labels(spot_image2, name="Spots 2")
     # Avoid color clash if all spots overlap
-    labels.colormap = napari.utils.colormaps.label_colormap(seed=0.12345)
+    labels2.colormap = napari.utils.colormaps.label_colormap(seed=0.12345)
     viewer.reset_view()
+    viewer.layers.selection.active = labels
+
     napari.run()
 
 
