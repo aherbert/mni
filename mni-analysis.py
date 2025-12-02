@@ -148,6 +148,7 @@ def main() -> None:
     from tifffile import imread, imwrite
 
     from mni.utils import (
+        analyse_objects,
         classify_objects,
         collate_groups,
         find_micronuclei,
@@ -272,8 +273,16 @@ def main() -> None:
         logger.info("Saving spot results: %s", fn)
         save_csv(fn, formatted)
 
+        o_data = analyse_objects(image[args.object_ch], label_image, objects)
+        # Collate to ID: (size, intensity, cx, cy)
+        object_data = {
+            x[0]: (x[1],) + y for x, y in zip(objects, o_data, strict=True)
+        }
+
         summary = spot_summary(results, groups)
-        formatted2 = format_summary_results(summary, class_names=class_names)
+        formatted2 = format_summary_results(
+            summary, class_names=class_names, object_data=object_data
+        )
         logger.info("Saving summary results: %s", fn2)
         save_csv(fn2, formatted2)
     else:

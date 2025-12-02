@@ -59,6 +59,7 @@ def main() -> None:
     from tifffile import imread
 
     from mni.utils import (
+        analyse_objects,
         classify_objects,
         collate_groups,
         find_micronuclei,
@@ -108,8 +109,18 @@ def main() -> None:
     for r in formatted:
         print(r)
 
+    # Note: to call analyse_objects would require the original channel image.
+    # Here we mock with a binary mask (thus size == intensity).
+    o_data = analyse_objects(label_image != 0, label_image, objects)
+    # Collate to ID: (size, intensity, cx, cy)
+    object_data = {
+        x[0]: (x[1],) + y for x, y in zip(objects, o_data, strict=True)
+    }
+
     summary = spot_summary(results, groups)
-    formatted2 = format_summary_results(summary, class_names=class_names)
+    formatted2 = format_summary_results(
+        summary, class_names=class_names, object_data=object_data
+    )
     if args.summary_fn:
         save_csv(args.summary_fn, formatted2)
 

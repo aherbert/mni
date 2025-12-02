@@ -696,21 +696,27 @@ def format_spot_results(
 def format_summary_results(
     summary: list[tuple[int, ...]],
     class_names: dict[int, str] | None = None,
-) -> list[tuple[int | str, ...]]:
+    object_data: dict[int, tuple[int, float, float, float]] | None = None,
+) -> list[tuple[int | float | str, ...]]:
     """Format the spot summary results.
 
     Args:
         summary: Spot analysis summary results.
         class_names: Optional class name of each object.
+        object_data: Optional data for each object (size, intensity, cx, cy)
 
     Returns:
         Formatted results
     """
-    out: list[tuple[int | str, ...]] = []
+    out: list[tuple[int | float | str, ...]] = []
     out.append(
         (
             "group",
             "label",
+            "size",
+            "intensity",
+            "cx",
+            "cy",
             "class",
             "count1",
             "count2",
@@ -719,8 +725,15 @@ def format_summary_results(
     )
     for data in summary:
         parent = int(data[1])
+        parent_data = (
+            object_data.get(parent, (0, 0, 0, 0))
+            if object_data
+            else (0, 0, 0, 0)
+        )
         cls = class_names.get(parent, "") if class_names else ""
-        formatted = data[:2] + (cls,) + data[2:] + (data[-2] + data[-1],)
+        formatted = (
+            data[:2] + parent_data + (cls,) + data[2:] + (data[-2] + data[-1],)
+        )
         out.append(formatted)
 
     return out
