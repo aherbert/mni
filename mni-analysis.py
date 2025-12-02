@@ -280,6 +280,12 @@ def main() -> None:
         logger.info("Existing spot results: %s", fn)
         logger.info("Existing summary results: %s", fn2)
 
+    # Save settings if all OK
+    fn = f"{base}.settings.json"
+    logger.info("Saving settings: %s", fn)
+    with open(fn, "w") as f:
+        json.dump(vars(args), f, indent=2)
+
     if args.view:
         logger.info("Launching viewer")
         from mni.gui import show_analysis
@@ -297,12 +303,6 @@ def main() -> None:
             channel_names=args.channel_names,
             visible_channels=visible_channels,
         )
-
-    # Save settings if all OK
-    fn = f"{base}.settings.json"
-    logger.info("Saving settings: %s", fn)
-    with open(fn, "w") as f:
-        json.dump(vars(args), f, indent=2)
 
     logger.info("Done")
 
