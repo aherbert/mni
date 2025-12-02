@@ -121,10 +121,11 @@ def main() -> None:
 
     group = parser.add_argument_group("Other Options")
     _ = group.add_argument(
-        "--force",
-        default=False,
-        action=argparse.BooleanOptionalAction,
-        help="Force creation of results, replacing those already present",
+        "--repeat",
+        type=int,
+        default=0,
+        choices=[0, 1, 2, 3],
+        help="Repeat from stage: 1=object segmentation; 2=spot identification; 3=analysis",
     )
 
     args = parser.parse_args()
@@ -168,8 +169,10 @@ def main() -> None:
 
     base, suffix = os.path.splitext(args.image)
 
+    stage = args.repeat if args.repeat else 10
+
     fn = f"{base}.objects{suffix}"
-    if args.force or not os.path.exists(fn):
+    if stage <= 1 or not os.path.exists(fn):
         from mni.segmentation import (
             filter_segmentation,
             segment,
@@ -196,7 +199,7 @@ def main() -> None:
 
     fn = f"{base}.spot1{suffix}"
     im1 = image[args.spot_ch1]
-    if args.force or not os.path.exists(fn):
+    if stage <= 2 or not os.path.exists(fn):
         if args.sigma > 0:
             im1 = gaussian_filter(im1, args.sigma, mode="mirror")
         label1 = object_threshold(
@@ -217,7 +220,7 @@ def main() -> None:
 
     fn = f"{base}.spot2{suffix}"
     im2 = image[args.spot_ch2]
-    if args.force or not os.path.exists(fn):
+    if stage <= 2 or not os.path.exists(fn):
         if args.sigma > 0:
             im2 = gaussian_filter(im2, args.sigma, mode="mirror")
         label2 = object_threshold(
@@ -240,7 +243,7 @@ def main() -> None:
     fn = f"{base}.spots.csv"
     fn2 = f"{base}.summary.csv"
 
-    if args.force or not (os.path.exists(fn) and os.path.exists(fn2)):
+    if stage <= 3 or not (os.path.exists(fn) and os.path.exists(fn2)):
         # find micro-nuclei and bleb parents
         objects = find_objects(label_image)
         data = find_micronuclei(
