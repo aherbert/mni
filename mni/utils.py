@@ -94,7 +94,8 @@ def find_micronuclei(
         if 0 in other:
             other.remove(0)
         # ignore neighbour micronuclei
-        for parent in other:
+        other_list = list(other)
+        for parent in other_list:
             if sizes[parent] <= size:
                 other.remove(parent)
         if len(other) == 0:
@@ -128,8 +129,10 @@ def find_micronuclei(
         # then choose the largest, otherwise the choice is undefined and
         # defaults to the parent ID
         neighbours = sorted([(v, sizes[k], k) for (k, v) in count.items()])
-
-        data.append((label, area, neighbours[0][-1], float(min_d)))
+        if neighbours:
+            data.append((label, area, neighbours[0][-1], float(min_d)))
+        else:
+            data.append((label, area, 0, 0.0))
 
     return data
 
@@ -435,26 +438,28 @@ def spot_analysis(
                 match2[j] = i + 1
                 iou2[j] = iou
         # closest neighbour distance matching
-        c1 = np.array(data1)[:, -2:]
-        c2 = np.array(data2)[:, -2:]
-        row_ind, col_ind, cost = _map_partial_linear_sum(
-            c1, c2, neighbour_distance
-        )
         d1, d2, neighbour1, neighbour2 = (
-            np.full(len(c1), -1.0),
-            np.full(len(c2), -1.0),
-            np.zeros(len(c1), dtype=np.int_),
-            np.zeros(len(c2), dtype=np.int_),
+            np.full(len(data1), -1.0),
+            np.full(len(data2), -1.0),
+            np.zeros(len(data1), dtype=np.int_),
+            np.zeros(len(data2), dtype=np.int_),
         )
-        for r, c in zip(row_ind, col_ind, strict=True):
-            d1[r] = d2[c] = cost[r, c]
-            neighbour1[r] = c
-            neighbour2[c] = r
+        if len(data1) and len(data2):
+            c1 = np.array(data1)[:, -2:]
+            c2 = np.array(data2)[:, -2:]
+            row_ind, col_ind, cost = _map_partial_linear_sum(
+                c1, c2, neighbour_distance
+            )
+            for r, c in zip(row_ind, col_ind, strict=True):
+                d1[r] = d2[c] = cost[r, c]
+                neighbour1[r] = c
+                neighbour2[c] = r
         # Report
         for (
             ch_,
             data_,
             id_,
+            other_id_,
             objects_,
             iou_,
             match_,
@@ -465,6 +470,7 @@ def spot_analysis(
             [1, 2],
             [data1, data2],
             [id1, id2],
+            [id2, id1],
             [objects1, objects2],
             [iou1, iou2],
             [match1, match2],
@@ -486,10 +492,10 @@ def spot_analysis(
                         d[0] / objects_[i][1],
                         cx,
                         cy,
-                        int(id_[match_[i] - 1]) if iou_[i] else 0,
+                        int(other_id_[match_[i] - 1]) if iou_[i] else 0,
                         float(iou_[i]),
                         manders_.get(i + 1, 0),
-                        int(id_[neighbour_[i]]) if d_[i] >= 0 else 0,
+                        int(other_id_[neighbour_[i]]) if d_[i] >= 0 else 0,
                         float(d_[i]),
                     )
                 )
