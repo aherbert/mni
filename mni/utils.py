@@ -401,8 +401,8 @@ def spot_analysis(
         # iou for label1 with label2
         iou1, match1 = mask_ious(c_label1, c_label2)
         # total intensity, cx, cy
-        data1 = _analyse(c_im1, c_label1, objects1, (y, x))
-        data2 = _analyse(c_im2, c_label2, objects2, (y, x))
+        data1 = analyse_objects(c_im1, c_label1, objects1, (y, x))
+        data2 = analyse_objects(c_im2, c_label2, objects2, (y, x))
         # Compute Mander's coefficient for the matches
         manders1 = {}
         manders2 = {}
@@ -534,15 +534,24 @@ def relabel(
     return new_mask, old_id  # type: ignore[no-any-return]
 
 
-def _analyse(
+def analyse_objects(
     im: npt.NDArray[Any],
     label_image: npt.NDArray[Any],
     objects: list[tuple[int, int, tuple[slice, slice]]],
-    offset: tuple[int, int],
+    offset: tuple[int, int] = (0, 0),
 ) -> list[tuple[float, float, float]]:
     """Extract the intensity and centroids for all labelled objects.
 
     Centroids use (0.5, 0.5) as the centre of pixels.
+
+    Args:
+        im: Image.
+        label_image: Label image.
+        objects: List of (ID, size, (slice(min_row, max_row), slice(min_col, max_col))).
+        offset: Offset to add to the centre (Y,X).
+
+    Returns:
+        list of (intensity, cx, cy)
     """
     data = []
     for label, _, bbox in objects:
