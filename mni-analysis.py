@@ -63,7 +63,7 @@ def main() -> None:
     _ = group.add_argument(
         "--method",
         default="mean_plus_std",
-        choices=["mean_plus_std", "otsu", "yen", "minimum"],
+        choices=["mean_plus_std", "mean_plus_std_q", "otsu", "yen", "minimum"],
         help="Thresholding method (default: %(default)s)",
     )
     _ = group.add_argument(
@@ -71,6 +71,12 @@ def main() -> None:
         default=4,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--quantile",
+        default=0.75,
+        type=float,
+        help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
 
     group = parser.add_argument_group("Micro-nuclei Options")
@@ -195,7 +201,7 @@ def main() -> None:
     logger.info("Identified %d objects: %s", n_objects, fn)
 
     # Spot identification
-    fun = threshold_method(args.method, std=args.std)
+    fun = threshold_method(args.method, std=args.std, q=args.quantile)
 
     fn = f"{base}.spot1{suffix}"
     im1 = image[args.spot_ch1]

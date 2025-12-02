@@ -269,13 +269,14 @@ def _compact_mask(mask: npt.NDArray[Any]) -> npt.NDArray[Any]:
 
 
 def threshold_method(
-    name: str, std: float = 4
+    name: str, std: float = 4, q: float = 0.5
 ) -> Callable[[npt.NDArray[Any]], int]:
     """Create a threshold function.
 
     Supported functions:
 
-    mean_plus_std: Threshold using (mean + n * std)
+    mean_plus_std: Threshold using (mean + n * std).
+    mean_plus_std_q: Threshold using (mean + n * std) using lowest quantile (q) of values.
     otsu: Otsu thresholding.
     yen: Yen's method.
     minimum: Smoth the histogram until only two maxima and return the mid-point between them.
@@ -283,6 +284,7 @@ def threshold_method(
     Args:
         name: Method name.
         std: Factor n for (mean + n * std) mean_plus_std method.
+        q: Quantile for lowest set of values.
 
     Returns:
         Callable threshold method.
@@ -298,6 +300,21 @@ def threshold_method(
             return int(t)
 
         return mean_plus_std
+
+    if name == "mean_plus_std_q":
+
+        def mean_plus_std_q(h: npt.NDArray[Any]) -> int:
+            # Find lowest n values to achieve quantile (or next above)
+            cumul = np.cumsum(h)
+            n = np.searchsorted(cumul / cumul[-1], q) + 1
+            values = np.arange(n)
+            probs = h[:n] / cumul[n - 1]
+            mean = np.sum(probs * values)
+            sd = np.sqrt(np.sum(probs * (values - mean) ** 2))
+            t = np.clip(math.floor(mean + std * sd), 0, len(h) - 1)
+            return int(t)
+
+        return mean_plus_std_q
 
     if name == "otsu":
 

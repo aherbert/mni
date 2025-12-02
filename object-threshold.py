@@ -22,7 +22,7 @@ def main() -> None:
     _ = group.add_argument(
         "--method",
         default="mean_plus_std",
-        choices=["mean_plus_std", "otsu", "yen", "minimum"],
+        choices=["mean_plus_std", "mean_plus_std_q", "otsu", "yen", "minimum"],
         help="Thresholding method (default: %(default)s)",
     )
     _ = group.add_argument(
@@ -30,6 +30,12 @@ def main() -> None:
         default=4,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--quantile",
+        default=0.75,
+        type=float,
+        help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
 
     args = parser.parse_args()
@@ -42,7 +48,7 @@ def main() -> None:
 
     from mni.utils import object_threshold, threshold_method
 
-    fun = threshold_method(args.method, std=args.std)
+    fun = threshold_method(args.method, std=args.std, q=args.quantile)
 
     im = imread(args.image)
     mask = imread(args.mask)
