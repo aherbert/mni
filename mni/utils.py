@@ -351,6 +351,49 @@ def threshold_method(
     raise Exception(f"Unknown method: {name}")
 
 
+def filter_method(
+    sigma1: float = 0, sigma2: float = 0
+) -> Callable[[npt.NDArray[Any]], npt.NDArray[Any]]:
+    """Create a filter function.
+
+    The filter will be a Gaussian smoothing filter or a difference of Gaussians
+    if the second radius is larger than the first.
+
+    Args:
+        sigma1: First Gaussian filter standard deviation.
+        sigma2: Second Gaussian filter standard deviation.
+
+    Returns:
+        Callable filter method.
+    """
+    if sigma1 > 0 or sigma2 > sigma1:
+
+        def f(im: npt.NDArray[Any]) -> npt.NDArray[Any]:
+            # Foreground smoothing
+            im1 = (
+                ndi.gaussian_filter(im, sigma1, mode="mirror")
+                if sigma1 > 0
+                else im
+            )
+
+            if sigma2 > sigma1:
+                # Background subtraction
+                background = ndi.gaussian_filter(im, sigma2, mode="mirror")
+                # Do not allow negative values but return as same datatype
+                # to support unsigned int images.
+                result = im1.astype(np.float64) - background
+                im1 = (result - np.min(result)).astype(im.dtype)
+
+            return im1
+
+        return f
+
+    def identity(im: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        return im
+
+    return identity
+
+
 def spot_analysis(
     label_image: npt.NDArray[Any],
     objects: list[tuple[int, int, tuple[slice, slice]]],

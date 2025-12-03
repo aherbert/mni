@@ -20,20 +20,26 @@ def main() -> None:
         help="Gaussian smoothing filter standard deviation (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--sigma2",
+        default=20,
+        type=float,
+        help="Background Gaussian smoothing filter standard deviation (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--method",
-        default="mean_plus_std",
+        default="mean_plus_std_q",
         choices=["mean_plus_std", "mean_plus_std_q", "otsu", "yen", "minimum"],
         help="Thresholding method (default: %(default)s)",
     )
     _ = group.add_argument(
         "--std",
-        default=4,
+        default=5,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
     )
     _ = group.add_argument(
         "--quantile",
-        default=0.75,
+        default=0.9,
         type=float,
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
@@ -49,21 +55,18 @@ def main() -> None:
     # Delay imports until argument parsing succeeds
     import os
 
-    from scipy.ndimage import gaussian_filter
     from tifffile import imread, imwrite
 
-    from mni.utils import object_threshold, threshold_method
+    from mni.utils import filter_method, object_threshold, threshold_method
 
     fun = threshold_method(args.method, std=args.std, q=args.quantile)
+    filter_fun = filter_method(args.sigma, args.sigma2)
 
     im = imread(args.image)
     mask = imread(args.mask)
 
-    if args.sigma > 0:
-        im = gaussian_filter(im, args.sigma, mode="mirror")
-
     m = object_threshold(
-        im,
+        filter_fun(im),
         mask,
         fun,
         min_size=args.min_spot_size,

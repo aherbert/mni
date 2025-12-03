@@ -61,20 +61,26 @@ def main() -> None:
         help="Gaussian smoothing filter standard deviation (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--sigma2",
+        default=20,
+        type=float,
+        help="Background Gaussian smoothing filter standard deviation (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--method",
-        default="mean_plus_std",
+        default="mean_plus_std_q",
         choices=["mean_plus_std", "mean_plus_std_q", "otsu", "yen", "minimum"],
         help="Thresholding method (default: %(default)s)",
     )
     _ = group.add_argument(
         "--std",
-        default=4,
+        default=5,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
     )
     _ = group.add_argument(
         "--quantile",
-        default=0.75,
+        default=0.9,
         type=float,
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
@@ -157,13 +163,13 @@ def main() -> None:
     from collections import Counter
 
     import numpy as np
-    from scipy.ndimage import gaussian_filter
     from tifffile import imread, imwrite
 
     from mni.utils import (
         analyse_objects,
         classify_objects,
         collate_groups,
+        filter_method,
         find_micronuclei,
         find_objects,
         format_spot_results,
@@ -221,19 +227,17 @@ def main() -> None:
             args.quantile,
         )
     fun = threshold_method(args.method, std=std, q=args.quantile)
+    filter_fun = filter_method(args.sigma, args.sigma2)
 
     fn = f"{base}.spot1{suffix}"
     im1 = image[args.spot_ch1]
     if stage <= 2 or not os.path.exists(fn):
-        if args.sigma > 0:
-            im1 = gaussian_filter(im1, args.sigma, mode="mirror")
         label1 = object_threshold(
-            im1,
+            filter_fun(im1),
             label_image,
             fun,
             min_size=args.min_spot_size,
         )
-        im1 = image[args.spot_ch1]
         imwrite(fn, label1, compression="zlib")
     else:
         label1 = imread(fn)
@@ -247,15 +251,12 @@ def main() -> None:
     fn = f"{base}.spot2{suffix}"
     im2 = image[args.spot_ch2]
     if stage <= 2 or not os.path.exists(fn):
-        if args.sigma > 0:
-            im2 = gaussian_filter(im2, args.sigma, mode="mirror")
         label2 = object_threshold(
-            im2,
+            filter_fun(im2),
             label_image,
             fun,
             min_size=args.min_spot_size,
         )
-        im2 = image[args.spot_ch2]
         imwrite(fn, label2, compression="zlib")
     else:
         label2 = imread(fn)
