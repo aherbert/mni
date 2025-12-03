@@ -211,6 +211,7 @@ def object_threshold(
     label_image: npt.NDArray[Any],
     fun: Callable[[npt.NDArray[Any]], int],
     objects: list[tuple[int, int, tuple[slice, slice]]] | None = None,
+    fill_holes: int = 0,
     min_size: int = 0,
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
@@ -224,6 +225,7 @@ def object_threshold(
         label_image: Label image.
         objects: Objects of interest (computed using find_objects).
         fun: Thresholding method.
+        fill_holes: Remove contiguous holes smaller than the specified size.
         min_size: Minimum size of thresholded regions.
 
     Returns:
@@ -244,6 +246,10 @@ def object_threshold(
         t = fun(h)
         # create labels
         target = target & (crop_i > t)
+        if fill_holes:
+            target = skimage.morphology.remove_small_holes(
+                target, fill_holes, out=target
+            )
         labels, n = skimage.measure.label(target, return_num=True)
         if min_size > 0:
             labels, n = filter_segmentation(

@@ -85,6 +85,12 @@ def main() -> None:
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--fill-holes",
+        default=2,
+        type=int,
+        help="Remove contiguous holes smaller than the specified size (pixels) (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--min-spot-size",
         default=4,
         type=int,
@@ -236,6 +242,7 @@ def main() -> None:
             filter_fun(im1),
             label_image,
             fun,
+            fill_holes=args.fill_holes,
             min_size=args.min_spot_size,
         )
         imwrite(fn, label1, compression="zlib")
@@ -255,6 +262,7 @@ def main() -> None:
             filter_fun(im2),
             label_image,
             fun,
+            fill_holes=args.fill_holes,
             min_size=args.min_spot_size,
         )
         imwrite(fn, label2, compression="zlib")
