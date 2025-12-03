@@ -78,6 +78,12 @@ def main() -> None:
         type=float,
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
+    _ = group.add_argument(
+        "--min-spot-size",
+        default=4,
+        type=int,
+        help="Minimum spot size (pixels) (default: %(default)s)",
+    )
 
     group = parser.add_argument_group("Micro-nuclei Options")
     _ = group.add_argument(
@@ -179,10 +185,8 @@ def main() -> None:
 
     fn = f"{base}.objects{suffix}"
     if stage <= 1 or not os.path.exists(fn):
-        from mni.segmentation import (
-            filter_segmentation,
-            segment,
-        )
+        from mni.segmentation import segment
+        from mni.utils import filter_segmentation
 
         label_image = segment(
             image[args.object_ch],
@@ -227,6 +231,7 @@ def main() -> None:
             im1,
             label_image,
             fun,
+            min_size=args.min_spot_size,
         )
         im1 = image[args.spot_ch1]
         imwrite(fn, label1, compression="zlib")
@@ -248,6 +253,7 @@ def main() -> None:
             im2,
             label_image,
             fun,
+            min_size=args.min_spot_size,
         )
         im2 = image[args.spot_ch2]
         imwrite(fn, label2, compression="zlib")

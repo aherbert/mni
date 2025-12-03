@@ -37,6 +37,12 @@ def main() -> None:
         type=float,
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
+    _ = group.add_argument(
+        "--min-spot-size",
+        default=4,
+        type=int,
+        help="Minimum spot size (pixels) (default: %(default)s)",
+    )
 
     args = parser.parse_args()
 
@@ -60,6 +66,7 @@ def main() -> None:
         im,
         mask,
         fun,
+        min_size=args.min_spot_size,
     )
     base, suffix = os.path.splitext(args.image)
     fn = f"{base}.objects{suffix}"

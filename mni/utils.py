@@ -13,6 +13,7 @@ import skimage.measure
 from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
+from skimage.segmentation import clear_border
 from skimage.util import map_array
 
 
@@ -210,6 +211,7 @@ def object_threshold(
     label_image: npt.NDArray[Any],
     fun: Callable[[npt.NDArray[Any]], int],
     objects: list[tuple[int, int, tuple[slice, slice]]] | None = None,
+    min_size: int = 0,
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
 
@@ -222,6 +224,7 @@ def object_threshold(
         label_image: Label image.
         objects: Objects of interest (computed using find_objects).
         fun: Thresholding method.
+        min_size: Minimum size of thresholded regions.
 
     Returns:
         mask of thresholded objects
@@ -242,6 +245,10 @@ def object_threshold(
         # create labels
         target = target & (crop_i > t)
         labels, n = skimage.measure.label(target, return_num=True)
+        if min_size > 0:
+            labels, n = filter_segmentation(
+                labels, border=-1, min_size=min_size
+            )
         if total:
             labels[labels != 0] += total
         total += n
@@ -529,6 +536,47 @@ def _extract_labels(
         target = label_image == label
         mask = mask | target
     return mask
+
+
+def filter_segmentation(
+    mask: npt.NDArray[Any],
+    border: int = 5,
+    relabel: bool = True,
+    min_size: int = 10,
+) -> tuple[npt.NDArray[Any], int]:
+    """Removes border objects and filters small objects from segmentation mask.
+
+    The size of the border can be specified. Use a negative size to skip removal of
+    border objects.
+
+    Objects are optionally relabeled to be continuous from 1.
+    Note: Removal of border objects can result in missing labels from the
+    original [0, N] label IDs.
+
+    Args:
+        mask: unfiltered segmentation mask
+        border: width of the border examined (negative to disable)
+        relabel: Set to True to relabel objects in [0, N]
+        min_size: Minimum size of objects.
+
+    Returns:
+        filtered segmentation mask, number of objects (N)
+    """
+    cleared: npt.NDArray[Any] = (
+        mask if border < 0 else clear_border(mask, buffer_size=border)  # type: ignore[no-untyped-call]
+    )
+    sizes = np.bincount(cleared.ravel())
+    mask_sizes = sizes > min_size
+    mask_sizes[0] = 0
+    cells_cleaned = mask_sizes[cleared]
+    new_mask = cells_cleaned * mask
+    n = np.sum(mask_sizes)
+    if relabel:
+        old_id = np.arange(len(sizes))[mask_sizes]
+        new_mask = map_array(
+            new_mask, old_id, np.arange(1, 1 + n), out=np.zeros_like(mask)
+        )
+    return new_mask, n  # type: ignore[no-any-return]
 
 
 def relabel(
