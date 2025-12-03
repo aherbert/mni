@@ -52,6 +52,12 @@ def main() -> None:
         type=int,
         help="Border to exclude objects (pixels; negative to disable) (default: %(default)s)",
     )
+    _ = group.add_argument(
+        "--dilation",
+        default=0,
+        type=int,
+        help="Dilation applied to objects (pixels; use to increase object size) (default: %(default)s)",
+    )
 
     group = parser.add_argument_group("Threshold Options")
     _ = group.add_argument(
@@ -215,6 +221,18 @@ def main() -> None:
         n_objects = np.max(label_image)
 
     logger.info("Identified %d objects: %s", n_objects, fn)
+
+    # Allow dynamic dilation of objects (i.e. dilation is not saved)
+    if args.dilation > 0:
+        logger.info("Applying dilation %d", args.dilation)
+        import skimage
+
+        footprint = skimage.morphology.disk(
+            args.dilation, decomposition="sequence"
+        )
+        dilated = skimage.morphology.dilation(label_image, footprint=footprint)
+        dilated[label_image != 0] = 0  # Do not overwrite neighbours
+        label_image += dilated
 
     # Spot identification
     std = args.std
