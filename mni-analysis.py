@@ -294,10 +294,12 @@ def main() -> None:
     )
 
     # Analysis cannot be loaded from previous results, just skip
-    fn = f"{base}.spots.csv"
-    fn2 = f"{base}.summary.csv"
+    spot_fn = f"{base}.spots.csv"
+    summary_fn = f"{base}.summary.csv"
 
-    if stage <= 3 or not (os.path.exists(fn) and os.path.exists(fn2)):
+    if stage <= 3 or not (
+        os.path.exists(spot_fn) and os.path.exists(summary_fn)
+    ):
         # find micro-nuclei and bleb parents
         objects = find_objects(label_image)
         data = find_micronuclei(
@@ -327,8 +329,8 @@ def main() -> None:
         )
 
         formatted = format_spot_results(results, class_names=class_names)
-        logger.info("Saving spot results: %s", fn)
-        save_csv(fn, formatted)
+        logger.info("Saving spot results: %s", spot_fn)
+        save_csv(spot_fn, formatted)
 
         o_data = analyse_objects(image[args.object_ch], label_image, objects)
         # Collate to ID: (size, intensity, cx, cy)
@@ -340,11 +342,11 @@ def main() -> None:
         formatted2 = format_summary_results(
             summary, class_names=class_names, object_data=object_data
         )
-        logger.info("Saving summary results: %s", fn2)
-        save_csv(fn2, formatted2)
+        logger.info("Saving summary results: %s", summary_fn)
+        save_csv(summary_fn, formatted2)
     else:
-        logger.info("Existing spot results: %s", fn)
-        logger.info("Existing summary results: %s", fn2)
+        logger.info("Existing spot results: %s", spot_fn)
+        logger.info("Existing summary results: %s", summary_fn)
 
     # Save settings if all OK
     fn = f"{base}.settings.json"
@@ -354,7 +356,12 @@ def main() -> None:
 
     if args.view:
         logger.info("Launching viewer")
+        import pandas as pd
+
         from mni.gui import show_analysis
+
+        label_df = pd.read_csv(summary_fn)
+        spot_df = pd.read_csv(spot_fn)
 
         visible_channels = (
             args.visible_channels
@@ -368,6 +375,8 @@ def main() -> None:
             label2,
             channel_names=args.channel_names,
             visible_channels=visible_channels,
+            label_df=label_df,
+            spot_df=spot_df,
         )
 
     logger.info("Done")

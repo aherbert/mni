@@ -1255,6 +1255,7 @@ dependencies = [
     { name = "cellpose" },
     { name = "imagecodecs" },
     { name = "napari", extra = ["all"] },
+    { name = "pandas" },
     { name = "scikit-image" },
     { name = "tifffile" },
 ]
@@ -1271,6 +1272,7 @@ requires-dist = [
     { name = "cellpose", specifier = ">=4.0.7" },
     { name = "imagecodecs", specifier = ">=2025.11.11" },
     { name = "napari", extras = ["all"], specifier = ">=0.6.6" },
+    { name = "pandas", specifier = ">=2.3.3" },
     { name = "scikit-image", specifier = ">=0.25.2" },
     { name = "tifffile", specifier = ">=2025.10.16" },
 ]

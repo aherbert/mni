@@ -6,6 +6,7 @@ import napari
 import napari.utils.colormaps
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from vispy.color import Colormap
 
 
@@ -16,8 +17,13 @@ def show_analysis(
     spot_image2: npt.NDArray[Any],
     channel_names: list[str] | None = None,
     visible_channels: list[int] | None = None,
+    label_df: pd.DataFrame | None = None,
+    spot_df: pd.DataFrame | None = None,
 ) -> None:
     """Show the spot analysis images.
+
+    Optional spots dataframe must contain a column named
+    'channel' with values of either 1 or 2.
 
     Args:
         image: Image (CYX).
@@ -26,6 +32,8 @@ def show_analysis(
         spot_image2: Second channel spots.
         channel_names: Name of image channels.
         visible_channels: Image channels to display.
+        label_df: DataFrame with 1 row per label.
+        spot_df: DataFrame with 1 row per label for each channel.
     """
     viewer = napari.Viewer()
     n = image.shape[0]
@@ -46,14 +54,33 @@ def show_analysis(
         layer.colormap = colors[i]
         layer.visible = i in visible_channels if visible_channels else True
     # Add labels
-    labels = viewer.add_labels(label_image, name="Objects")
-    labels.contour = 1
-    _ = viewer.add_labels(spot_image1, name="Spots 1")
-    labels2 = viewer.add_labels(spot_image2, name="Spots 2")
+    object_labels = viewer.add_labels(
+        label_image,
+        name="Objects",
+        features=_to_features(label_df, np.max(label_image)),
+    )
+    object_labels.preserve_labels = True
+    object_labels.contour = 1
+    # Add spots
+    labels1 = viewer.add_labels(
+        spot_image1,
+        name="Spots 1",
+        features=_to_features(spot_df, np.max(spot_image1), channel=1),
+    )
+    labels1.preserve_labels = True
+    labels2 = viewer.add_labels(
+        spot_image2,
+        name="Spots 2",
+        features=_to_features(spot_df, np.max(spot_image2), channel=2),
+    )
+    labels2.preserve_labels = True
     # Avoid color clash if all spots overlap
     labels2.colormap = napari.utils.colormaps.label_colormap(seed=0.12345)
+
     viewer.reset_view()
-    viewer.layers.selection.active = labels
+    viewer.layers.selection.active = object_labels
+
+    viewer.window.add_plugin_dock_widget("napari", "Features table widget")
 
     napari.run()
 
@@ -122,3 +149,18 @@ def _generate_color_map(channel_names: list[str]) -> list[str | Colormap]:
         else remaining_colors.pop()
         for ch in channel_names
     ]
+
+
+def _to_features(
+    df: pd.DataFrame | None, size: int, channel: int | None = None
+) -> pd.DataFrame | None:
+    """Convert data to a features table."""
+    if df is None:
+        return None
+    if channel is not None and "channel" in df.columns:
+        df = df[df["channel"] == channel].copy()
+    if len(df) != size:
+        return None
+    # Insert an empty row for the background label
+    df = pd.concat([pd.DataFrame([{col: 0 for col in df.columns}]), df])
+    return df

@@ -8,6 +8,7 @@ dependencies = [
     "cellpose>=4.0.7",
     "imagecodecs>=2025.11.11",
     "napari[all]>=0.6.6",
+    "pandas>=2.3.3",
     "scikit-image>=0.25.2",
     "tifffile>=2025.10.16",
 ]
