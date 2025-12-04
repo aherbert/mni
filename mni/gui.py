@@ -1,5 +1,6 @@
 """Graphical user interface functions."""
 
+from collections.abc import Callable
 from typing import Any
 
 import napari
@@ -7,7 +8,62 @@ import napari.utils.colormaps
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from qtpy.QtWidgets import (
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 from vispy.color import Colormap
+
+
+class _AnalysisWidget(QWidget):  # type: ignore[misc]
+    """Widget to add a button with an analysis function."""
+
+    def __init__(
+        self,
+        text: str,
+        analysis_fun: Callable[
+            [
+                npt.NDArray[Any],
+                npt.NDArray[Any],
+                npt.NDArray[Any],
+            ],
+            tuple[pd.DataFrame | None, pd.DataFrame | None],
+        ],
+    ) -> None:
+        """Create the widget.
+
+        Args:
+            text: Text for the widget button.
+            analysis_fun: Function to call.
+        """
+        super().__init__()
+        self.analysis_fun = analysis_fun
+        self.btn1 = QPushButton(text)
+        self.btn1.clicked.connect(self.run)
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.btn1)
+        self.setLayout(self.layout)
+
+    def run(self) -> None:
+        """Repeat the analysis and update the features."""
+        viewer = napari.current_viewer()
+        o_layer = viewer.layers["Objects"]
+        s_layer1 = viewer.layers["Spots 1"]
+        s_layer2 = viewer.layers["Spots 2"]
+        label_image = o_layer.data
+        spot_image1 = s_layer1.data
+        spot_image2 = s_layer2.data
+        label_df, spot_df = self.analysis_fun(
+            label_image, spot_image1, spot_image2
+        )
+        o_layer.features = _to_features(label_df, np.max(label_image))
+        s_layer1.features = _to_features(
+            spot_df, np.max(spot_image1), channel=1
+        )
+        s_layer2.features = _to_features(
+            spot_df, np.max(spot_image2), channel=2
+        )
 
 
 def show_analysis(
@@ -20,6 +76,46 @@ def show_analysis(
     label_df: pd.DataFrame | None = None,
     spot_df: pd.DataFrame | None = None,
 ) -> None:
+    """Show the spot analysis images.
+
+    Optional spots dataframe must contain a column named
+    'channel' with values of either 1 or 2.
+
+    This method will block until the viewer is closed.
+
+    Args:
+        image: Image (CYX).
+        label_image: Label image.
+        spot_image1: First channel spots.
+        spot_image2: Second channel spots.
+        channel_names: Name of image channels.
+        visible_channels: Image channels to display.
+        label_df: DataFrame with 1 row per label.
+        spot_df: DataFrame with 1 row per label for each channel.
+    """
+    viewer = create_viewer(
+        image,
+        label_image,
+        spot_image1,
+        spot_image2,
+        channel_names=channel_names,
+        visible_channels=visible_channels,
+        label_df=label_df,
+        spot_df=spot_df,
+    )
+    show_viewer(viewer)
+
+
+def create_viewer(
+    image: npt.NDArray[Any],
+    label_image: npt.NDArray[Any],
+    spot_image1: npt.NDArray[Any],
+    spot_image2: npt.NDArray[Any],
+    channel_names: list[str] | None = None,
+    visible_channels: list[int] | None = None,
+    label_df: pd.DataFrame | None = None,
+    spot_df: pd.DataFrame | None = None,
+) -> napari.Viewer:
     """Show the spot analysis images.
 
     Optional spots dataframe must contain a column named
@@ -72,16 +168,49 @@ def show_analysis(
         spot_image2,
         name="Spots 2",
         features=_to_features(spot_df, np.max(spot_image2), channel=2),
+        # Avoid color clash if all spots overlap
+        colormap=napari.utils.colormaps.label_colormap(seed=0.12345),
     )
     labels2.preserve_labels = True
-    # Avoid color clash if all spots overlap
-    labels2.colormap = napari.utils.colormaps.label_colormap(seed=0.12345)
 
     viewer.reset_view()
     viewer.layers.selection.active = object_labels
 
     viewer.window.add_plugin_dock_widget("napari", "Features table widget")
 
+    return viewer
+
+
+def add_analysis_function(
+    viewer: napari.Viewer,
+    analysis_fun: Callable[
+        [
+            npt.NDArray[Any],
+            npt.NDArray[Any],
+            npt.NDArray[Any],
+        ],
+        tuple[pd.DataFrame | None, pd.DataFrame | None],
+    ],
+) -> None:
+    """Add the analysis function.
+
+    Args:
+        viewer: Viewer.
+        analysis_fun: Analysis function.
+    """
+    widget = _AnalysisWidget("Redo analysis", analysis_fun)
+    viewer.window.add_dock_widget(widget, area="right")
+
+
+def show_viewer(viewer: napari.Viewer) -> None:
+    """Show the spot analysis viewer.
+
+    This method will block until the viewer is closed.
+
+    Args:
+        viewer: Viewer.
+    """
+    # The viewer is not required; start the event loop
     napari.run()
 
 

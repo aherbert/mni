@@ -173,8 +173,10 @@ def main() -> None:
     import json
     import os
     from collections import Counter
+    from typing import Any
 
     import numpy as np
+    import numpy.typing as npt
     from tifffile import imread, imwrite
 
     from mni.utils import (
@@ -201,8 +203,8 @@ def main() -> None:
 
     stage = args.repeat if args.repeat else 10
 
-    fn = f"{base}.objects{suffix}"
-    if stage <= 1 or not os.path.exists(fn):
+    label_fn = f"{base}.objects{suffix}"
+    if stage <= 1 or not os.path.exists(label_fn):
         from mni.segmentation import segment
         from mni.utils import filter_segmentation
 
@@ -215,12 +217,12 @@ def main() -> None:
         label_image, n_objects = filter_segmentation(
             label_image, border=args.border
         )
-        imwrite(fn, label_image, compression="zlib")
+        imwrite(label_fn, label_image, compression="zlib")
     else:
-        label_image = imread(fn)
+        label_image = imread(label_fn)
         n_objects = np.max(label_image)
 
-    logger.info("Identified %d objects: %s", n_objects, fn)
+    logger.info("Identified %d objects: %s", n_objects, label_fn)
 
     # Allow dynamic dilation of objects (i.e. dilation is not saved)
     if args.dilation > 0:
@@ -253,9 +255,9 @@ def main() -> None:
     fun = threshold_method(args.method, std=std, q=args.quantile)
     filter_fun = filter_method(args.sigma, args.sigma2)
 
-    fn = f"{base}.spot1{suffix}"
+    spot1_fn = f"{base}.spot1{suffix}"
     im1 = image[args.spot_ch1]
-    if stage <= 2 or not os.path.exists(fn):
+    if stage <= 2 or not os.path.exists(spot1_fn):
         label1 = object_threshold(
             filter_fun(im1),
             label_image,
@@ -263,19 +265,19 @@ def main() -> None:
             fill_holes=args.fill_holes,
             min_size=args.min_spot_size,
         )
-        imwrite(fn, label1, compression="zlib")
+        imwrite(spot1_fn, label1, compression="zlib")
     else:
-        label1 = imread(fn)
+        label1 = imread(spot1_fn)
     logger.info(
         "Identified %d spots in channel %d: %s",
         np.max(label1),
         args.spot_ch1,
-        fn,
+        spot1_fn,
     )
 
-    fn = f"{base}.spot2{suffix}"
+    spot2_fn = f"{base}.spot2{suffix}"
     im2 = image[args.spot_ch2]
-    if stage <= 2 or not os.path.exists(fn):
+    if stage <= 2 or not os.path.exists(spot2_fn):
         label2 = object_threshold(
             filter_fun(im2),
             label_image,
@@ -283,23 +285,28 @@ def main() -> None:
             fill_holes=args.fill_holes,
             min_size=args.min_spot_size,
         )
-        imwrite(fn, label2, compression="zlib")
+        imwrite(spot2_fn, label2, compression="zlib")
     else:
-        label2 = imread(fn)
+        label2 = imread(spot2_fn)
     logger.info(
         "Identified %d spots in channel %d: %s",
         np.max(label2),
         args.spot_ch2,
-        fn,
+        spot2_fn,
     )
 
     # Analysis cannot be loaded from previous results, just skip
     spot_fn = f"{base}.spots.csv"
     summary_fn = f"{base}.summary.csv"
 
-    if stage <= 3 or not (
-        os.path.exists(spot_fn) and os.path.exists(summary_fn)
-    ):
+    # Create an anlysis function to allow this to be repeated.
+    # Settings used: distance, size, min_size, neighbour_distance.
+    # These could be added as input for the function and updated through the GUI.
+    def analysis_fun(
+        label_image: npt.NDArray[Any],
+        label1: npt.NDArray[Any],
+        label2: npt.NDArray[Any],
+    ) -> None:
         # find micro-nuclei and bleb parents
         objects = find_objects(label_image)
         data = find_micronuclei(
@@ -344,6 +351,11 @@ def main() -> None:
         )
         logger.info("Saving summary results: %s", summary_fn)
         save_csv(summary_fn, formatted2)
+
+    if stage <= 3 or not (
+        os.path.exists(spot_fn) and os.path.exists(summary_fn)
+    ):
+        analysis_fun(label_image, label1, label2)
     else:
         logger.info("Existing spot results: %s", spot_fn)
         logger.info("Existing summary results: %s", summary_fn)
@@ -357,8 +369,9 @@ def main() -> None:
     if args.view:
         logger.info("Launching viewer")
         import pandas as pd
+        from skimage.measure import label
 
-        from mni.gui import show_analysis
+        from mni.gui import add_analysis_function, create_viewer, show_viewer
 
         label_df = pd.read_csv(summary_fn)
         spot_df = pd.read_csv(spot_fn)
@@ -368,7 +381,7 @@ def main() -> None:
             if args.visible_channels
             else [args.spot_ch1, args.spot_ch2]
         )
-        show_analysis(
+        viewer = create_viewer(
             image,
             label_image,
             label1,
@@ -378,6 +391,35 @@ def main() -> None:
             label_df=label_df,
             spot_df=spot_df,
         )
+
+        # Allow recomputation of features
+        def redo_analysis_fun(
+            label_image: npt.NDArray[Any],
+            label1: npt.NDArray[Any],
+            label2: npt.NDArray[Any],
+        ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+            logger.info("Repeating analysis")
+            # Manual editing may duplicate label IDs
+            label_image = label(label_image)
+            label1 = label(label1)
+            label2 = label(label2)
+
+            # Save new labels
+            imwrite(label_fn, label_image, compression="zlib")
+            imwrite(spot1_fn, label1, compression="zlib")
+            imwrite(spot2_fn, label2, compression="zlib")
+
+            analysis_fun(label_image, label1, label2)
+
+            # Reload analysis
+            label_df = pd.read_csv(summary_fn)
+            spot_df = pd.read_csv(spot_fn)
+
+            return label_df, spot_df
+
+        add_analysis_function(viewer, redo_analysis_fun)
+
+        show_viewer(viewer)
 
     logger.info("Done")
 
