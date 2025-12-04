@@ -217,24 +217,27 @@ def main() -> None:
         label_image, n_objects = filter_segmentation(
             label_image, border=args.border
         )
+
+        # Dilation is saved into the mask
+        if args.dilation > 0:
+            logger.info("Applying dilation %d", args.dilation)
+            import skimage
+
+            footprint = skimage.morphology.disk(
+                args.dilation, decomposition="sequence"
+            )
+            dilated = skimage.morphology.dilation(
+                label_image, footprint=footprint
+            )
+            dilated[label_image != 0] = 0  # Do not overwrite neighbours
+            label_image += dilated
+
         imwrite(label_fn, label_image, compression="zlib")
     else:
         label_image = imread(label_fn)
         n_objects = np.max(label_image)
 
     logger.info("Identified %d objects: %s", n_objects, label_fn)
-
-    # Allow dynamic dilation of objects (i.e. dilation is not saved)
-    if args.dilation > 0:
-        logger.info("Applying dilation %d", args.dilation)
-        import skimage
-
-        footprint = skimage.morphology.disk(
-            args.dilation, decomposition="sequence"
-        )
-        dilated = skimage.morphology.dilation(label_image, footprint=footprint)
-        dilated[label_image != 0] = 0  # Do not overwrite neighbours
-        label_image += dilated
 
     # Spot identification
     std = args.std
