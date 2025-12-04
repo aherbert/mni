@@ -54,7 +54,7 @@ def main() -> None:
     )
     _ = group.add_argument(
         "--dilation",
-        default=0,
+        default=1,
         type=int,
         help="Dilation applied to objects (pixels; use to increase object size) (default: %(default)s)",
     )
@@ -68,7 +68,7 @@ def main() -> None:
     )
     _ = group.add_argument(
         "--sigma2",
-        default=20,
+        default=30,
         type=float,
         help="Background Gaussian smoothing filter standard deviation (default: %(default)s)",
     )
@@ -80,13 +80,13 @@ def main() -> None:
     )
     _ = group.add_argument(
         "--std",
-        default=5,
+        default=7,
         type=float,
         help="Std.dev above the mean (default: %(default)s)",
     )
     _ = group.add_argument(
         "--quantile",
-        default=0.9,
+        default=0.75,
         type=float,
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
