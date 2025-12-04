@@ -54,7 +54,7 @@ def main() -> None:
     )
     _ = group.add_argument(
         "--dilation",
-        default=1,
+        default=2,
         type=int,
         help="Dilation applied to objects (pixels; use to increase object size) (default: %(default)s)",
     )
