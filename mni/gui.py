@@ -28,7 +28,13 @@ class _AnalysisWidget(QWidget):  # type: ignore[misc]
                 npt.NDArray[Any],
                 npt.NDArray[Any],
             ],
-            tuple[pd.DataFrame | None, pd.DataFrame | None],
+            tuple[
+                npt.NDArray[Any] | None,
+                npt.NDArray[Any] | None,
+                npt.NDArray[Any] | None,
+                pd.DataFrame | None,
+                pd.DataFrame | None,
+            ],
         ],
     ) -> None:
         """Create the widget.
@@ -54,13 +60,28 @@ class _AnalysisWidget(QWidget):  # type: ignore[misc]
         label_image = o_layer.data
         spot_image1 = s_layer1.data
         spot_image2 = s_layer2.data
-        label_df, spot_df = self.analysis_fun(
-            label_image, spot_image1, spot_image2
+        label_image_a, spot_image1_a, spot_image2_a, label_df, spot_df = (
+            self.analysis_fun(label_image, spot_image1, spot_image2)
         )
+
+        # Images may be updated
+        if label_image_a is not None:
+            o_layer.data = label_image_a
+            label_image = label_image_a
+        if spot_image1_a is not None:
+            s_layer1.data = spot_image1_a
+            spot_image1 = spot_image1_a
+        if spot_image2_a is not None:
+            s_layer2.data = spot_image2_a
+            spot_image2 = spot_image2_a
+
+        # Features must match the displayed image
         o_layer.features = _to_features(label_df, np.max(label_image))
         s_layer1.features = _to_features(
             spot_df, np.max(spot_image1), channel=1
         )
+        if spot_image2 is not None:
+            s_layer2.data = spot_image2
         s_layer2.features = _to_features(
             spot_df, np.max(spot_image2), channel=2
         )
@@ -189,10 +210,19 @@ def add_analysis_function(
             npt.NDArray[Any],
             npt.NDArray[Any],
         ],
-        tuple[pd.DataFrame | None, pd.DataFrame | None],
+        tuple[
+            npt.NDArray[Any] | None,
+            npt.NDArray[Any] | None,
+            npt.NDArray[Any] | None,
+            pd.DataFrame | None,
+            pd.DataFrame | None,
+        ],
     ],
 ) -> None:
     """Add the analysis function.
+
+    The analysis function can update the mask images. If None
+    is returned for a mask then the displayed mask is not changed.
 
     Args:
         viewer: Viewer.

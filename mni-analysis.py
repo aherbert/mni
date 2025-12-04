@@ -401,7 +401,13 @@ def main() -> None:
             label_image: npt.NDArray[Any],
             label1: npt.NDArray[Any],
             label2: npt.NDArray[Any],
-        ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+        ) -> tuple[
+            npt.NDArray[Any] | None,
+            npt.NDArray[Any] | None,
+            npt.NDArray[Any] | None,
+            pd.DataFrame | None,
+            pd.DataFrame | None,
+        ]:
             logger.info("Repeating analysis")
             # Manual editing may duplicate label IDs
             label_image, m = label(label_image, return_num=True)
@@ -422,7 +428,7 @@ def main() -> None:
             label_df = pd.read_csv(summary_fn)
             spot_df = pd.read_csv(spot_fn)
 
-            return label_df, spot_df
+            return label_image, label1, label2, label_df, spot_df
 
         add_analysis_function(viewer, redo_analysis_fun)
 
