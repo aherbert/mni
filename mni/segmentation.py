@@ -6,6 +6,8 @@ import numpy.typing as npt
 import torch
 from cellpose import models
 
+from .utils import compact_mask
+
 
 def segment(
     img: npt.NDArray[Any],
@@ -34,7 +36,7 @@ def segment(
         normalize=True,
         diameter=diameter,
     )
-    return array
+    return compact_mask(array)
 
 
 def _get_device(device: str | None = None) -> torch.device:

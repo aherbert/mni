@@ -372,6 +372,7 @@ def main() -> None:
         from skimage.measure import label
 
         from mni.gui import add_analysis_function, create_viewer, show_viewer
+        from mni.utils import compact_mask
 
         label_df = pd.read_csv(summary_fn)
         spot_df = pd.read_csv(spot_fn)
@@ -400,9 +401,12 @@ def main() -> None:
         ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
             logger.info("Repeating analysis")
             # Manual editing may duplicate label IDs
-            label_image = label(label_image)
-            label1 = label(label1)
-            label2 = label(label2)
+            label_image, m = label(label_image, return_num=True)
+            label1, m1 = label(label1, return_num=True)
+            label2, m2 = label(label2, return_num=True)
+            label_image = compact_mask(label_image, m=m)
+            label1 = compact_mask(label1, m=m1)
+            label2 = compact_mask(label2, m=m2)
 
             # Save new labels
             imwrite(label_fn, label_image, compression="zlib")

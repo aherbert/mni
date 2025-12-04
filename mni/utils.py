@@ -261,19 +261,21 @@ def object_threshold(
 
         final_mask[bbox[0], bbox[1]] += labels
 
-    return _compact_mask(final_mask)
+    return compact_mask(final_mask, m=total)
 
 
-def _compact_mask(mask: npt.NDArray[Any]) -> npt.NDArray[Any]:
+def compact_mask(mask: npt.NDArray[Any], m: int = 0) -> npt.NDArray[Any]:
     """Compact the int datatype to the smallest required to store all mask IDs.
 
     Args:
-        mask (npt.NDArray[Any]): Segmentation mask.
+        mask: Segmentation mask.
+        m: Maximum value in the mask.
 
     Returns:
-        npt.NDArray[Any]: Compact segmentation mask.
+        Compact segmentation mask.
     """
-    m = mask.max()
+    if m == 0:
+        m = mask.max()
     if m < 2**8:
         return mask.astype(np.uint8)
     if m < 2**16:
