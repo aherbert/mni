@@ -173,10 +173,10 @@ def create_viewer(
     )
     labels2.preserve_labels = True
 
+    viewer.window.add_plugin_dock_widget("napari", "Features table widget")
+
     viewer.reset_view()
     viewer.layers.selection.active = object_labels
-
-    viewer.window.add_plugin_dock_widget("napari", "Features table widget")
 
     return viewer
 
