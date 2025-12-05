@@ -24,6 +24,12 @@ def main() -> None:
         default=[],
         help="Visible channels",
     )
+    _ = parser.add_argument(
+        "--upper-limit",
+        default=99.999,
+        type=float,
+        help="Upper contrast limit (percentile) (default: %(default)s)",
+    )
 
     args = parser.parse_args()
 
@@ -44,6 +50,7 @@ def main() -> None:
         label2,
         channel_names=args.channel_names,
         visible_channels=args.visible_channels,
+        upper_limit=args.upper_limit,
     )
 
 

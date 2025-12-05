@@ -96,6 +96,7 @@ def show_analysis(
     visible_channels: list[int] | None = None,
     label_df: pd.DataFrame | None = None,
     spot_df: pd.DataFrame | None = None,
+    upper_limit: float = 100,
 ) -> None:
     """Show the spot analysis images.
 
@@ -113,6 +114,7 @@ def show_analysis(
         visible_channels: Image channels to display.
         label_df: DataFrame with 1 row per label.
         spot_df: DataFrame with 1 row per label for each channel.
+        upper_limit: Upper limit (percentile) for contrast display range.
     """
     viewer = create_viewer(
         image,
@@ -123,6 +125,7 @@ def show_analysis(
         visible_channels=visible_channels,
         label_df=label_df,
         spot_df=spot_df,
+        upper_limit=upper_limit,
     )
     show_viewer(viewer)
 
@@ -136,6 +139,7 @@ def create_viewer(
     visible_channels: list[int] | None = None,
     label_df: pd.DataFrame | None = None,
     spot_df: pd.DataFrame | None = None,
+    upper_limit: float = 100,
 ) -> napari.Viewer:
     """Show the spot analysis images.
 
@@ -151,6 +155,7 @@ def create_viewer(
         visible_channels: Image channels to display.
         label_df: DataFrame with 1 row per label.
         spot_df: DataFrame with 1 row per label for each channel.
+        upper_limit: Upper limit (percentile) for contrast display range.
     """
     viewer = napari.Viewer()
     n = image.shape[0]
@@ -163,9 +168,10 @@ def create_viewer(
     # Add image layers
     for i, im in enumerate(image):
         layer = viewer.add_image(im)
-        layer.contrast_limits_range = (np.min(im), np.max(im))
-        # This saturates the upper levels
-        # layer.contrast_limits = np.percentile(im, (1, 99))
+        im_min, im_max = np.min(im), np.max(im)
+        layer.contrast_limits_range = (im_min, im_max)
+        if upper_limit < 100:
+            layer.contrast_limits = (im_min, np.percentile(im, upper_limit))
         layer.blending = "additive"
         layer.name = channel_names[i]
         layer.colormap = colors[i]

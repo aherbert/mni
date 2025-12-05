@@ -54,7 +54,7 @@ def main() -> None:
     )
     _ = group.add_argument(
         "--dilation",
-        default=2,
+        default=0,
         type=int,
         help="Dilation applied to objects (pixels; use to increase object size) (default: %(default)s)",
     )
@@ -138,15 +138,21 @@ def main() -> None:
         action=argparse.BooleanOptionalAction,
         help="Show results in graphical viewer",
     )
-    _ = parser.add_argument(
+    _ = group.add_argument(
         "--channel-names", nargs="+", default=[], help="Channel names"
     )
-    _ = parser.add_argument(
+    _ = group.add_argument(
         "--visible-channels",
         nargs="+",
         type=int,
         default=[],
         help="Visible channels (default is the spot channels)",
+    )
+    _ = group.add_argument(
+        "--upper-limit",
+        default=99.999,
+        type=float,
+        help="Upper contrast limit (percentile) (default: %(default)s)",
     )
 
     group = parser.add_argument_group("Other Options")
@@ -394,6 +400,7 @@ def main() -> None:
             visible_channels=visible_channels,
             label_df=label_df,
             spot_df=spot_df,
+            upper_limit=args.upper_limit,
         )
 
         # Allow recomputation of features
