@@ -326,6 +326,8 @@ def _to_features(
         df = df[df["channel"] == channel].copy()
     if len(df) != size:
         return None
+    # Order by label
+    df.sort_values("label", inplace=True)
     # Insert an empty row for the background label
     df = pd.concat([pd.DataFrame([{col: 0 for col in df.columns}]), df])
     return df
