@@ -12,9 +12,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # Clone the repository
-git clone https://github.com/aherbert/plate-stitch.git
+git clone https://github.com/aherbert/mni.git
 # Change into the project directory
-cd plate-stitch
+cd mni
 # Create and activate virtual environment
 uv sync
 source .venv/bin/activate
@@ -26,6 +26,8 @@ Segmentation uses `cellpose` which requires that the named model be installed in
 `cellpose` models directory. This can be achieved using:
 
         cellpose --add_model [model path]
+
+The default cellpose 4 model is `cpsam`. This works well for typical nuclei images.
 
 ## Development
 
