@@ -28,6 +28,12 @@ def main() -> None:
         type=int,
         help="Spot channel 2 (default: %(default)s)",
     )
+    _ = parser.add_argument(
+        "--scale",
+        default=0.065,
+        type=float,
+        help="Scale (um/px) (default: %(default)s)",
+    )
 
     group = parser.add_argument_group("Object Options")
     _ = group.add_argument(
@@ -353,7 +359,9 @@ def main() -> None:
             neighbour_distance=args.neighbour_distance,
         )
 
-        formatted = format_spot_results(results, class_names=class_names)
+        formatted = format_spot_results(
+            results, class_names=class_names, scale=args.scale
+        )
         logger.info("Saving spot results: %s", spot_fn)
         save_csv(spot_fn, formatted)
 

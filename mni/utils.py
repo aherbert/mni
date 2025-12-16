@@ -777,12 +777,17 @@ def spot_summary(
 def format_spot_results(
     results: list[tuple[int | float, ...]],
     class_names: dict[int, str] | None = None,
+    scale: float = 0,
 ) -> list[tuple[int | float | str, ...]]:
     """Format the spot results.
+
+    If a scale is provided an additional scaled distance column is returned.
+    Units are assumed to be micrometers (μm).
 
     Args:
         results: Spot analysis results.
         class_names: Optional class name of each object.
+        scale: Optional distance scale (micrometers/pixel).
 
     Returns:
         Formatted results
@@ -806,10 +811,14 @@ def format_spot_results(
             "distance",
         )
     )
+    if scale:
+        out[0] = out[0] + ("distance (μm)",)
     for data in results:
         parent = int(data[3])
         cls = class_names.get(parent, "") if class_names else ""
         formatted = data[:4] + (cls,) + data[4:]
+        if scale:
+            formatted = formatted + (data[-1] * scale,)
         out.append(formatted)
 
     return out
