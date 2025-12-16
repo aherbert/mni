@@ -20,6 +20,15 @@ uv sync
 source .venv/bin/activate
 ```
 
+## Updating
+
+```bash
+# Pull the latest changes
+git pull
+# Resync the virtual environment
+uv sync
+```
+
 ## Usage
 
 Segmentation uses `cellpose` which requires that the named model be installed in the
@@ -28,6 +37,50 @@ Segmentation uses `cellpose` which requires that the named model be installed in
         cellpose --add_model [model path]
 
 The default cellpose 4 model is `cpsam`. This works well for typical nuclei images.
+
+Analysis of micro-nuclei images requires a CYX input image. This can be in TIFF or CZI
+(Carl Zeiss Image) format. The script `mni-analysis.py` is used to run the analysis:
+
+```bash
+# Activate the environment (if not active)
+source .venv/bin/activate
+
+# Analyse
+./mni-analysis.py /path/to/image.[tiff|czi]
+```
+
+This script will perform the following steps:
+
+1. Segment the selected nuclei channel.
+1. Identify spots in the two selected spot channels.
+1. Assign nuclei objects to classes (nucleus; micro-nucleus; bleb).
+Create analysis objects and for each group compute spot counts, and between channel
+spot overlap and nearest neighbours.
+
+Results are saved to files with the same prefix as the input image:
+
+- `.objects.tiff`: Nuclei label mask.
+- `.spot1.tiff`: Spot channel 1 label mask.
+- `.spot2.tiff`: Spot channel 2 label mask.
+- `.spots.csv`: Spot details table.
+- `.summary.csv`: Nuclei summary table.
+- `.settings.json`: JSON file with the runtime settings.
+
+The results can be visualised in `Napari` using the `--view` option. This will load
+the image as channels and the 3 label layers. The results tables are associated with
+the appropriate label layers. The editing tools within `Napari` can be used to update
+the label masks, e.g. add or remove spots; update the nuclei objects. A widget
+within `Napari` allows the results tables to be regenerated from modified labels. This
+will save the current label layers to file allowing the analysis to be continued in
+a subsequent session by reloading the results:
+
+```bash
+# [Re]Analyse and view
+./mni-analysis.py /path/to/image.[tiff|czi] --view
+```
+
+Analysis can be repeated which will reload existing results or restart the analysis at the
+given stage, e.g. 1; 2; or 3.
 
 ## Development
 
