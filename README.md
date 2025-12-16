@@ -32,11 +32,12 @@ uv sync
 ## Usage
 
 Segmentation uses `cellpose` which requires that the named model be installed in the
-`cellpose` models directory. This can be achieved using:
+`cellpose` models directory. For custom models this can be achieved using:
 
         cellpose --add_model [model path]
 
-The default cellpose 4 model is `cpsam`. This works well for typical nuclei images.
+The default cellpose 4 model is `cpsam` (no  install required). This works well for
+typical nuclei images.
 
 Analysis of micro-nuclei images requires a CYX input image. This can be in TIFF or CZI
 (Carl Zeiss Image) format. The script `mni-analysis.py` is used to run the analysis:
