@@ -205,7 +205,7 @@ def main() -> None:
     base, suffix = os.path.splitext(args.image)
     if args.image.endswith("czi"):
         image = czifile.imread(args.image)
-        # CZI file may have CZXT format
+        # CZI file may have CYXT format
         if image.shape[-1] == 1:
             image = np.squeeze(image, axis=-1)
         suffix = ".tiff"
