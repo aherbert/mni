@@ -106,7 +106,7 @@ def main() -> None:
     group = parser.add_argument_group("Micro-nuclei Options")
     _ = group.add_argument(
         "--distance",
-        default=20,
+        default=2,
         type=int,
         help="Search distance for bleb (pixels) (default: %(default)s)",
     )
