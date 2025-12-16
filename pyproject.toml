@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "cellpose>=4.0.7",
+    "czifile>=2019.7.2.1",
     "imagecodecs>=2025.11.11",
     "napari[all]>=0.6.6",
     "pandas>=2.3.3",

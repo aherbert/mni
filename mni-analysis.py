@@ -181,6 +181,7 @@ def main() -> None:
     from collections import Counter
     from typing import Any
 
+    import czifile
     import numpy as np
     import numpy.typing as npt
     from tifffile import imread, imwrite
@@ -201,11 +202,17 @@ def main() -> None:
         threshold_method,
     )
 
-    image = imread(args.image)
-    if image.ndim != 3 or np.argmin(image.shape) != 0:
-        raise RuntimeError("Expected CYX image")
-
     base, suffix = os.path.splitext(args.image)
+    if args.image.endswith("czi"):
+        image = czifile.imread(args.image)
+        # CZI file may have CZXT format
+        if image.shape[-1] == 1:
+            image = np.squeeze(image, axis=-1)
+        suffix = ".tiff"
+    else:
+        image = imread(args.image)
+    if image.ndim != 3 or np.argmin(image.shape) != 0:
+        raise RuntimeError("Expected CYX image: " + str(image.shape))
 
     stage = args.repeat if args.repeat else 10
 
