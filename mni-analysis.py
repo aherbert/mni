@@ -9,7 +9,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="""Program to analyse the spots between two channels within MNi objects."""
     )
-    _ = parser.add_argument("image", help="Image (CYX) (TIFF)")
+    _ = parser.add_argument("image", help="Image (CYX) (TIFF/CZI)")
     _ = parser.add_argument(
         "--object-ch",
         default=3,
@@ -181,7 +181,6 @@ def main() -> None:
     from collections import Counter
     from typing import Any
 
-    import czifile
     import numpy as np
     import numpy.typing as npt
     from tifffile import imread, imwrite
@@ -203,13 +202,16 @@ def main() -> None:
     )
 
     base, suffix = os.path.splitext(args.image)
-    if args.image.endswith("czi"):
-        image = czifile.imread(args.image)
-        # CZI file may have CYXT format
-        if image.shape[-1] == 1:
-            image = np.squeeze(image, axis=-1)
+    if suffix == ".czi":
+        import czifile
+
+        with czifile.CziFile(args.image) as czi:
+            image = czi.asarray()
+            if czi.axes == "CYX0":
+                image = np.squeeze(image, axis=-1)
         suffix = ".tiff"
     else:
+        # TIFF
         image = imread(args.image)
     if image.ndim != 3 or np.argmin(image.shape) != 0:
         raise RuntimeError("Expected CYX image: " + str(image.shape))
