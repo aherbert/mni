@@ -760,7 +760,7 @@ def _map_partial_linear_sum(
     tree2 = scipy.spatial.KDTree(c2)
     # Ensure a full matching exists by setting false edges between all vertices.
     # Use a distance that cannot be chosen over an actual edge.
-    cost = np.full((len(c1), len(c2)), len(c1) * threshold * 1.0)
+    cost = np.full((len(c1), len(c2)), len(c1) * threshold * 1.5)
     indexes = tree1.query_ball_tree(tree2, r=threshold)
     count = 0
     for i, v1 in enumerate(c1):
