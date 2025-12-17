@@ -2,6 +2,7 @@
 
 import csv
 import math
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -10,11 +11,59 @@ import numpy.typing as npt
 import scipy.spatial
 import skimage.filters
 import skimage.measure
+import tifffile
 from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
 from skimage.segmentation import clear_border
 from skimage.util import map_array
+
+
+def find_images(
+    files: list[str],
+) -> list[str]:
+    """Find the images in the input file or directory paths.
+
+    Adds any file with extension CZI, or any TIFF with 3 dimensions (CYX).
+
+    Args:
+        files: Image file or directory paths.
+
+    Returns:
+        list of image files
+
+    Raises:
+        RuntimeError: if a path is not a file or directory
+    """
+    images = []
+    for fn in files:
+        if os.path.isfile(fn):
+            if _is_image(fn):
+                images.append(fn)
+        elif os.path.isdir(fn):
+            # List CZI or TIFF
+            for file in os.listdir(fn):
+                file = os.path.join(fn, file)
+                if _is_image(file):
+                    images.append(file)
+        else:
+            raise RuntimeError("Not a file or directory: " + fn)
+    return images
+
+
+def _is_image(fn: str) -> bool:
+    """Check if the file is a target image."""
+    base, suffix = os.path.splitext(fn)
+    suffix = suffix.lower()
+    if suffix == ".czi":
+        return True
+    if suffix == ".tiff":
+        # Require CYX. Ignores result image masks (YX) from a directory.
+        with tifffile.TiffFile(fn) as tif:
+            # image shape
+            shape = tif.series[0].shape
+            return len(shape) == 3 and np.argmin(shape) == 0
+    return False
 
 
 def find_objects(

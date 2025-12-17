@@ -31,6 +31,8 @@ uv sync
 
 ## Usage
 
+### Cellpose models
+
 Segmentation uses `cellpose` which requires that the named model be installed in the
 `cellpose` models directory. For custom models this can be achieved using:
 
@@ -38,6 +40,8 @@ Segmentation uses `cellpose` which requires that the named model be installed in
 
 The default cellpose 4 model is `cpsam` (no  install required). This works well for
 typical nuclei images.
+
+### Analysis of images
 
 Analysis of micro-nuclei images requires a CYX input image. This can be in TIFF or CZI
 (Carl Zeiss Image) format. The script `mni-analysis.py` is used to run the analysis:
@@ -82,6 +86,19 @@ a subsequent session by reloading the results:
 
 Analysis can be repeated which will reload existing results or restart the analysis at the
 given stage, e.g. 1; 2; or 3.
+
+### Multiple images
+
+Multiple images can be passed as arguments to the analysis script. It is also possible to
+pass in directories. In this case the script will run on any file with the CZI extension
+and any TIFF file containing a CYX image. This allows the script to run on a directory
+containing existing result masks as these YX images will be ignored. The CZI images are
+expected to be CYX or CYX0 (where the last dimension is the sample).
+
+```bash
+# Analyse an image and two image directories
+./mni-analysis.py /path/to/image.[tiff|czi] /path/to/images/ /path/to/more/images/ --view
+```
 
 ## Development
 
