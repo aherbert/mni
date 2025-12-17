@@ -100,6 +100,20 @@ expected to be CYX or CYX0 (where the last dimension is the sample).
 ./mni-analysis.py /path/to/image.[tiff|czi] /path/to/images/ /path/to/more/images/ --view
 ```
 
+### Reporting
+
+The results CSV files can be collated and used to generate reports across the analysis.
+This can be done by passing individual CSV files or results directories. Only files
+ending `.spots.csv` or `.summary.csv` are loaded. Reports are printed to the console
+and saved to the specified output directory. Reports can be selected or by default
+all reports are generated. Use the help option (`-h`) to view parameters that change the
+report queries.
+
+```bash
+# Generate reports on the MNi analysis
+./mni-reports.py /path/to/images/ /path/to/more/images/
+```
+
 ## Development
 
 This project uses [pre-commit](https://pre-commit.com/) to create actions to validate
