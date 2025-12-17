@@ -28,9 +28,10 @@ def main() -> None:
 
 1: Class count
 2: Class and spot count
-3: Class and spot overlaps above iou parameter
-4: Class and spot neighbours below distance parameter
-5: Class and spots above manders parameter
+3: Class and spot channel count
+4: Class and spot overlaps above iou parameter
+5: Class and spot neighbours below distance parameter
+6: Class and spots above manders parameter
 """,
     )
     _ = group.add_argument(
