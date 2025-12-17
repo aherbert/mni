@@ -128,7 +128,7 @@ def create_report(
             manders = kwargs.get("manders", 0.2)
             title = f"Class and spots above manders {manders}"
             data = (
-                spot_df[spot_df["distance"] >= manders]
+                spot_df[spot_df["manders"] >= manders]
                 .groupby(["class", "channel"])
                 .size()
                 .reset_index(name="total")
