@@ -213,6 +213,8 @@ def main() -> None:
         threshold_method,
     )
 
+    std = args.std
+
     images = find_images(args.image)
     for image_fn in images:
         logger.info("Processing %s", image_fn)
@@ -271,8 +273,7 @@ def main() -> None:
         logger.info("Identified %d objects: %s", n_objects, label_fn)
 
         # Spot identification
-        std = args.std
-        if args.method == "mean_plus_std_q":
+        if args.method == "mean_plus_std_q" and std == args.std:
             # make std shift equivalent to get the same thresholding level if a normal distribution is truncated
             import scipy.stats
 
