@@ -80,8 +80,6 @@ class _AnalysisWidget(QWidget):  # type: ignore[misc]
         s_layer1.features = _to_features(
             spot_df, np.max(spot_image1), channel=1
         )
-        if spot_image2 is not None:
-            s_layer2.data = spot_image2
         s_layer2.features = _to_features(
             spot_df, np.max(spot_image2), channel=2
         )
