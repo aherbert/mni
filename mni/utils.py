@@ -371,7 +371,10 @@ def compact_mask(mask: npt.NDArray[Any], m: int = 0) -> npt.NDArray[Any]:
 
 
 def threshold_method(
-    name: str, std: float = 4, q: float = 0.5
+    name: str,
+    std: float = 4,
+    q: float = 0.5,
+    threshold: int = 0,
 ) -> Callable[[npt.NDArray[Any]], int]:
     """Create a threshold function.
 
@@ -387,10 +390,18 @@ def threshold_method(
         name: Method name.
         std: Factor n for (mean + n * std) mean_plus_std method.
         q: Quantile for lowest set of values.
+        threshold: Manual threshold (overrides named methods).
 
     Returns:
         Callable threshold method.
     """
+    if threshold > 0:
+
+        def manual(h: npt.NDArray[Any]) -> int:
+            return threshold
+
+        return manual
+
     if name == "mean_plus_std":
 
         def mean_plus_std(h: npt.NDArray[Any]) -> int:

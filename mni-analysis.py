@@ -90,6 +90,18 @@ def main() -> None:
         help="Thresholding method (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--threshold1",
+        default=0,
+        type=int,
+        help="Manual threshold for spot channel 1 (overrides method) (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--threshold2",
+        default=0,
+        type=int,
+        help="Manual threshold for spot channel 2 (overrides method) (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--std",
         default=7,
         type=float,
@@ -301,16 +313,21 @@ def main() -> None:
                 std,
                 args.quantile,
             )
-        fun = threshold_method(args.method, std=std, q=args.quantile)
         filter_fun = filter_method(args.sigma, args.sigma2)
 
         spot1_fn = f"{base}.spot1{suffix}"
         im1 = image[args.spot_ch1]
         if stage <= 2 or not os.path.exists(spot1_fn):
+            fun1 = threshold_method(
+                args.method,
+                std=std,
+                q=args.quantile,
+                threshold=args.threshold1,
+            )
             label1 = object_threshold(
                 filter_fun(im1),
                 label_image,
-                fun,
+                fun1,
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
                 split_objects=args.split,
@@ -329,10 +346,16 @@ def main() -> None:
         spot2_fn = f"{base}.spot2{suffix}"
         im2 = image[args.spot_ch2]
         if stage <= 2 or not os.path.exists(spot2_fn):
+            fun2 = threshold_method(
+                args.method,
+                std=std,
+                q=args.quantile,
+                threshold=args.threshold2,
+            )
             label2 = object_threshold(
                 filter_fun(im2),
                 label_image,
-                fun,
+                fun2,
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
                 split_objects=args.split,
