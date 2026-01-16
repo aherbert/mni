@@ -102,6 +102,12 @@ def main() -> None:
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--global-threshold",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Use threshold across all objects; else threshold within each object (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--split",
         type=int,
         default=2,
@@ -308,6 +314,7 @@ def main() -> None:
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
                 split_objects=args.split,
+                global_threshold=args.global_threshold,
             )
             imwrite(spot1_fn, label1, compression="zlib")
         else:
@@ -329,6 +336,7 @@ def main() -> None:
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
                 split_objects=args.split,
+                global_threshold=args.global_threshold,
             )
             imwrite(spot2_fn, label2, compression="zlib")
         else:
