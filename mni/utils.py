@@ -15,7 +15,8 @@ import tifffile
 from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
-from skimage.segmentation import clear_border
+from skimage.feature import peak_local_max
+from skimage.segmentation import clear_border, watershed
 from skimage.util import map_array
 
 
@@ -262,6 +263,7 @@ def object_threshold(
     objects: list[tuple[int, int, tuple[slice, slice]]] | None = None,
     fill_holes: int = 0,
     min_size: int = 0,
+    split_objects: int = 0,
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
 
@@ -276,6 +278,7 @@ def object_threshold(
         fun: Thresholding method.
         fill_holes: Remove contiguous holes smaller than the specified size.
         min_size: Minimum size of thresholded regions.
+        split_objects: Split objects using a watershed based on: 1=EDT; 2=image.
 
     Returns:
         mask of thresholded objects
@@ -300,6 +303,22 @@ def object_threshold(
                 target, fill_holes, out=target
             )
         labels, n = skimage.measure.label(target, return_num=True)
+        # Watershed to split touching foci
+        if split_objects:
+            # Watershed based-on distance transform
+            distance = (
+                ndi.distance_transform_edt(target)
+                if split_objects == 1
+                else crop_i
+            )
+            coords = peak_local_max(
+                distance, footprint=np.ones((3, 3)), labels=target
+            )
+            mask = np.zeros(distance.shape, dtype=bool)
+            mask[tuple(coords.T)] = True
+            markers, _ = ndi.label(mask)
+            labels = watershed(-distance, markers, mask=target)
+            n = np.max(labels)
         if min_size > 0:
             labels, n = filter_segmentation(
                 labels, border=-1, min_size=min_size

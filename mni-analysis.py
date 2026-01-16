@@ -102,6 +102,13 @@ def main() -> None:
         help="Quantile for lowest value used in mean_plus_std_q (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--split",
+        type=int,
+        default=2,
+        choices=[0, 1, 2],
+        help="Split using watershed: 1=Distance transform; 2=Image (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--fill-holes",
         default=2,
         type=int,
@@ -216,6 +223,7 @@ def main() -> None:
     std = args.std
 
     images = find_images(args.image)
+    logger.info("Identified %d images", len(images))
     for image_fn in images:
         logger.info("Processing %s", image_fn)
 
@@ -299,6 +307,7 @@ def main() -> None:
                 fun,
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
+                split_objects=args.split,
             )
             imwrite(spot1_fn, label1, compression="zlib")
         else:
@@ -319,6 +328,7 @@ def main() -> None:
                 fun,
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
+                split_objects=args.split,
             )
             imwrite(spot2_fn, label2, compression="zlib")
         else:
