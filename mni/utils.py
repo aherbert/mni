@@ -17,6 +17,7 @@ from cellpose.metrics import mask_ious
 from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
 from skimage.feature import peak_local_max
+from skimage.morphology import disk
 from skimage.segmentation import clear_border, watershed
 from skimage.util import map_array
 
@@ -267,6 +268,8 @@ def object_threshold(
     fill_holes: int = 0,
     min_size: int = 0,
     split_objects: int = 0,
+    split_radius: int = 2,
+    split_footprint: str = "disk",
     global_threshold: bool = False,
 ) -> npt.NDArray[Any]:
     """Threshold the pixels in each masked object.
@@ -283,6 +286,8 @@ def object_threshold(
         fill_holes: Remove contiguous holes smaller than the specified size.
         min_size: Minimum size of thresholded regions.
         split_objects: Split objects using a watershed based on: 1=EDT; 2=image.
+        split_radius: Radius for local maxima to seed spot split.
+        split_footprint: Shape for the local maxima footprint (disk; or defaults to square).
         global_threshold: Apply thresholding to all object values together; else each object separately.
 
     Returns:
@@ -303,6 +308,13 @@ def object_threshold(
         h = np.bincount(np.concatenate(data))
         t = fun(h)
         logger.info("Global threshold: %d", t)
+
+    r = max(split_radius, 1)
+    footprint = (
+        disk(r)
+        if split_footprint == "disk"
+        else np.ones((2 * r + 1,) * 3, dtype=bool)
+    )
 
     for label, _area, bbox in objects:
         # crop for efficiency
@@ -331,7 +343,7 @@ def object_threshold(
                 else crop_i
             )
             coords = peak_local_max(
-                distance, footprint=np.ones((3, 3)), labels=target
+                distance, footprint=footprint, labels=target
             )
             mask = np.zeros(distance.shape, dtype=bool)
             mask[tuple(coords.T)] = True

@@ -127,6 +127,18 @@ def main() -> None:
         help="Split using watershed: 1=Distance transform; 2=Image (default: %(default)s)",
     )
     _ = group.add_argument(
+        "--split-radius",
+        type=int,
+        default=2,
+        help="Radius for local maxima to seed spot split (default: %(default)s)",
+    )
+    _ = group.add_argument(
+        "--split-footprint",
+        default="disk",
+        choices=["disk", "square"],
+        help="Footprint shape for local maxima to seed spot split (default: %(default)s)",
+    )
+    _ = group.add_argument(
         "--fill-holes",
         default=2,
         type=int,
@@ -331,6 +343,8 @@ def main() -> None:
                 fill_holes=args.fill_holes,
                 min_size=args.min_spot_size,
                 split_objects=args.split,
+                split_radius=args.split_radius,
+                split_footprint=args.split_footprint,
                 global_threshold=args.global_threshold,
             )
             imwrite(spot1_fn, label1, compression="zlib")
